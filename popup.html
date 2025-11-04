@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      min-height: 400px;
+      margin: 0;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .refresh-btn {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .refresh-btn:hover {
+      background: #3367d6;
+    }
+    .media-list {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    .media-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #ddd;
+      margin-bottom: 5px;
+      border-radius: 3px;
+    }
+    .media-info {
+      flex: 1;
+      margin-right: 10px;
+    }
+    .media-url {
+      font-size: 12px;
+      color: #666;
+      word-break: break-all;
+    }
+    .media-type {
+      font-weight: bold;
+      color: #333;
+    }
+    .media-size {
+      font-size: 11px;
+      color: #888;
+    }
+    .download-btn {
+      background: #34a853;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .download-btn:hover {
+      background: #2d8f47;
+    }
+    .download-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .no-media {
+      text-align: center;
+      color: #666;
+      padding: 20px;
+    }
+    .status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>Media Downloader</h3>
+    <button id="refreshBtn" class="refresh-btn">Refresh</button>
+  </div>
+  <div id="mediaList" class="media-list">
+    <div class="no-media">No media detected yet. Try refreshing or interacting with the page.</div>
+  </div>
+  <div id="status" class="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
