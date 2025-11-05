@@ -29,44 +29,6 @@ async function verifyPass(key, pass) {
   }
 }
 
-async function generatePassForUser(key) {
-  // Generate random salt
-  const salt = generateRandomSalt();
-
-  // Encrypt the salt using the key
-  const encryptedSaltHex = await encryptSalt(key, salt);
-
-  // Generate verification hash
-  const verificationHash = await generateVeryShortHash(key + salt);
-
-  // Combine: encrypted_salt(8 chars) + hash(16 chars) = 24 chars total
-  return encryptedSaltHex.substring(0, 8) + verificationHash;
-}
-
-async function encryptSalt(key, salt) {
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key)),
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt']
-  );
-
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv },
-    keyMaterial,
-    new TextEncoder().encode(salt)
-  );
-
-  // Combine IV and encrypted data, convert to hex
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
-
-  return Array.from(combined).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-}
-
 async function decryptSalt(key, encryptedSaltHex) {
   try {
     const keyMaterial = await crypto.subtle.importKey(
@@ -94,15 +56,6 @@ async function decryptSalt(key, encryptedSaltHex) {
   }
 }
 
-function generateRandomSalt() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let salt = '';
-  for (let i = 0; i < 16; i++) {
-    salt += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return salt;
-}
-
 async function generateVeryShortHash(message) {
   let data = new TextEncoder().encode(message);
 
@@ -115,6 +68,7 @@ async function generateVeryShortHash(message) {
   // Take first 8 bytes (16 hex chars) for very short hash
   return hashArray.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
 
 // Initialize license on installation
 function initLicense() {
