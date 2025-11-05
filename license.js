@@ -9,21 +9,27 @@ function generateUniqueKey() {
   return key;
 }
 
-function verifyPass(key, pass) {
-  // Simple verification: pass should be SHA-256 hash of key + salt
-  const expectedPass = sha256(key + 'salt123');
-  return pass === expectedPass;
+async function verifyPass(key, pass) {
+  try {
+    const expectedPass = await generateComplexPass(key);
+    return pass === expectedPass;
+  } catch (error) {
+    console.error('Pass verification error:', error);
+    return false;
+  }
 }
 
-function sha256(message) {
-  // Simple hash function for demo (in production, use crypto.subtle)
-  let hash = 0;
-  for (let i = 0; i < message.length; i++) {
-    const char = message.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+async function generateComplexPass(key) {
+  let data = new TextEncoder().encode(key + 'salt123');
+
+  // Perform 1000 rounds of SHA-256 hashing for complexity
+  for (let i = 0; i < 1000; i++) {
+    data = await crypto.subtle.digest('SHA-256', data);
   }
-  return Math.abs(hash).toString(16);
+
+  // Convert to hex string
+  const hashArray = Array.from(new Uint8Array(data));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Initialize license on installation
@@ -45,15 +51,23 @@ function isLicenseActivated(callback) {
 }
 
 // Activate license with pass
-function activateLicense(pass, callback) {
-  chrome.storage.local.get(['licenseKey'], (result) => {
-    if (verifyPass(result.licenseKey, pass)) {
-      chrome.storage.local.set({ licenseActivated: true }, () => {
-        callback(true);
-      });
-    } else {
-      callback(false);
-    }
+async function activateLicense(pass) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['licenseKey'], async (result) => {
+      try {
+        const isValid = await verifyPass(result.licenseKey, pass);
+        if (isValid) {
+          chrome.storage.local.set({ licenseActivated: true }, () => {
+            resolve(true);
+          });
+        } else {
+          resolve(false);
+        }
+      } catch (error) {
+        console.error('License activation error:', error);
+        resolve(false);
+      }
+    });
   });
 }
 

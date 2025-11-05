@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Activation handler
-  activateBtn.addEventListener('click', function() {
+  activateBtn.addEventListener('click', async function() {
     const pass = licenseInput.value.trim();
     if (!pass) {
       licenseStatus.textContent = 'Please enter a pass';
@@ -48,7 +48,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    activateLicense(pass, (success) => {
+    licenseStatus.textContent = 'Verifying...';
+    licenseStatus.style.color = 'blue';
+
+    try {
+      const success = await activateLicense(pass);
       if (success) {
         licenseStatus.textContent = 'License activated successfully!';
         licenseStatus.style.color = 'green';
@@ -60,7 +64,11 @@ document.addEventListener('DOMContentLoaded', function() {
         licenseStatus.textContent = 'Invalid pass. Please try again.';
         licenseStatus.style.color = 'red';
       }
-    });
+    } catch (error) {
+      licenseStatus.textContent = 'Verification failed. Please try again.';
+      licenseStatus.style.color = 'red';
+      console.error('License activation error:', error);
+    }
   });
 
   // Load and display media on popup open
