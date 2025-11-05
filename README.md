@@ -2,16 +2,6 @@
 
 A Chrome extension that automatically detects video and audio media on web pages and provides an easy way to download them.
 
-## Features
-
-- **Automatic Detection**: Monitors network requests to detect video and audio files as they load
-- **Real-time Updates**: Media list updates in real-time as new content loads
-- **Per-Tab Tracking**: Shows media only from the currently active tab
-- **Download Management**: Direct download buttons for each detected media file
-- **Refresh Functionality**: Manual refresh to clear and re-scan for media
-- **Size Information**: Displays file sizes when available
-- **Clean UI**: Simple popup interface with organized media list
-
 ## Installation
 
 1. Download or clone this repository
@@ -20,34 +10,34 @@ A Chrome extension that automatically detects video and audio media on web pages
 4. Click "Load unpacked" and select the extension directory
 5. The extension should now be installed and visible in your toolbar
 
-## Usage
+## Features
 
-1. Navigate to any website with video or audio content
-2. Click the Media Downloader extension icon in your toolbar
-3. The popup will show detected media files from the current tab
-4. Click "Download" next to any media file to save it
-5. Use "Refresh" to clear the list and re-scan for new media
+The Media Downloader Chrome Extension is designed to automatically detect and download media files from various websites, including popular platforms like QQ Music, Ximalaya, Netease Cloud Music, and Douyin.
 
-## How It Works
+### Screenshots
 
-- **Background Script**: Monitors all network requests using `chrome.webRequest` API
-- **Content Detection**: Identifies video/* and audio/* content types
-- **Storage**: Saves media information in `chrome.storage` for persistence
-- **Popup Interface**: Displays media list with download functionality
-- **Real-time Updates**: Listens for storage changes to update the UI automatically
+| Platform | Screenshot |
+|----------|------------|
+| QQ Music | ![QQ Music](https://i.imgur.com/wf28xv2.png) |
+| Ximalaya | ![Ximalaya](https://i.imgur.com/IPe2Agr.png) |
+| Netease Cloud Music | ![Netease Cloud Music](https://i.imgur.com/4clSuPr.png) |
+| Spotify | ![Spotify](https://i.imgur.com/YyO7IXE.png) |
+| Download | ![Download](https://i.imgur.com/yo4cVzC.png) |
 
-## Limitations
+## Multi-Site Media Detection
 
-- Only detects media that has been requested by the browser
-- Lazy-loaded media may not appear until triggered
-- File size information depends on server headers
-- Downloads are handled by Chrome's built-in download manager
+- **Broad Compatibility**: The extension monitors network requests for video and audio content types across all websites
+- **QQ Music**: Detects music files and audio streams played on the QQ Music platform
+- **Ximalaya**: Captures audio content from podcasts and audio programs
+- **Netease Cloud Music**: Identifies music tracks and audio content from the platform
+- **Douyin**: Detects video files from the platform's short video content
 
-## Browser Compatibility
+## Batch Download Capabilities
 
-- Chrome 88+ (Manifest V3)
-- Chromium-based browsers (Edge, Opera, etc.)
+The extension provides batch download functionality through:
 
-## License
-
-This project is open source and available under the MIT License.
+1. **Real-time Collection**: Automatically accumulates all detected media files in the popup interface as you browse
+2. **Multi-Item Display**: Shows a complete list of available media from the current tab
+3. **Individual Download Controls**: Each detected media item has its own download button
+4. **One-Click Per File**: Users can download multiple files sequentially with individual clicks
+5. **Refresh and Rescan**: The refresh functionality allows clearing the current list and detecting new media
