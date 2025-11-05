@@ -11,29 +11,22 @@ function generateUniqueKey() {
 
 async function verifyPass(key, pass) {
   try {
-    console.log('verifyPass: Starting with key:', key, 'pass:', pass);
     // Pass format: encrypted_salt(full length) + verification_hash(16 chars)
     // encrypted_salt is IV(24 hex chars) + encrypted data, total varies
     const verificationHashLength = 16;
     if (pass.length < verificationHashLength) {
-      console.log('verifyPass: Pass too short, got:', pass.length);
       return false;
     }
 
     const encryptedSaltHex = pass.substring(0, pass.length - verificationHashLength);
     const verificationHash = pass.substring(pass.length - verificationHashLength);
-    console.log('verifyPass: encryptedSaltHex:', encryptedSaltHex, 'verificationHash:', verificationHash);
 
     // Decrypt the salt using the key
     const salt = await decryptSalt(key, encryptedSaltHex);
-    console.log('verifyPass: Decrypted salt:', salt);
 
     // Verify the hash
     const expectedHash = await generateVeryShortHash(key + salt);
-    console.log('verifyPass: Expected hash:', expectedHash, 'Actual hash:', verificationHash);
-    const isValid = verificationHash === expectedHash;
-    console.log('verifyPass: Hash match:', isValid);
-    return isValid;
+    return verificationHash === expectedHash;
   } catch (error) {
     console.error('Pass verification error:', error);
     return false;
@@ -42,7 +35,6 @@ async function verifyPass(key, pass) {
 
 async function decryptSalt(key, encryptedSaltHex) {
   try {
-    console.log('decryptSalt: Starting with key:', key, 'encryptedSaltHex:', encryptedSaltHex);
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key)),
@@ -53,10 +45,8 @@ async function decryptSalt(key, encryptedSaltHex) {
 
     // Convert hex back to bytes (IV is first 12 bytes, rest is encrypted data)
     const encryptedBytes = new Uint8Array(encryptedSaltHex.match(/.{2}/g).map(h => parseInt(h, 16)));
-    console.log('decryptSalt: encryptedBytes length:', encryptedBytes.length);
     const iv = encryptedBytes.slice(0, 12);
     const encrypted = encryptedBytes.slice(12);
-    console.log('decryptSalt: IV length:', iv.length, 'encrypted length:', encrypted.length);
 
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv },
@@ -64,11 +54,8 @@ async function decryptSalt(key, encryptedSaltHex) {
       encrypted
     );
 
-    const salt = new TextDecoder().decode(decrypted);
-    console.log('decryptSalt: Decrypted salt:', salt);
-    return salt;
+    return new TextDecoder().decode(decrypted);
   } catch (error) {
-    console.error('decryptSalt error:', error);
     throw new Error('Failed to decrypt salt');
   }
 }
