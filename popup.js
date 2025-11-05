@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const licenseInput = document.getElementById('licenseInput');
   const activateBtn = document.getElementById('activateBtn');
   const licenseStatus = document.getElementById('licenseStatus');
+  const copyKeyBtn = document.getElementById('copyKeyBtn');
 
   // Check license status on load
   checkLicenseStatus();
@@ -33,6 +34,11 @@ document.addEventListener('DOMContentLoaded', function() {
     licenseSection.style.display = 'block';
     mainContent.style.display = 'none';
     uniqueKeySpan.textContent = key;
+    
+    // Add event listener for copy button if it exists
+    if (copyKeyBtn) {
+      copyKeyBtn.addEventListener('click', copyUniqueKeyToClipboard);
+    }
   }
 
   function showMainContent() {

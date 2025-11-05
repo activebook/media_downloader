@@ -73,6 +73,26 @@ async function generateVeryShortHash(message) {
   return hashArray.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Function to copy the unique key to clipboard
+function copyUniqueKeyToClipboard() {
+  const uniqueKeyElement = document.getElementById('uniqueKey');
+  const keyText = uniqueKeyElement.textContent;
+  
+  navigator.clipboard.writeText(keyText).then(() => {
+    // Show feedback to user
+    const copyButton = document.getElementById('copyKeyBtn');
+    
+    // Add copied class for visual feedback
+    copyButton.classList.add('copied');
+    
+    // Remove copied class after 2 seconds
+    setTimeout(() => {
+      copyButton.classList.remove('copied');
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy key: ', err);
+  });
+}
 
 // Initialize license on installation
 function initLicense() {
