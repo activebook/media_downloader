@@ -1,4 +1,5 @@
 // Background script to monitor network requests for media files
+importScripts('license.js');
 
 // Store media URLs with metadata
 let mediaStore = new Map();
