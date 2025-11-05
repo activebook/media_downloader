@@ -5,6 +5,63 @@ document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('refreshBtn');
   const downloadAllBtn = document.getElementById('downloadAllBtn');
   const statusDiv = document.getElementById('status');
+  const licenseSection = document.getElementById('licenseSection');
+  const mainContent = document.getElementById('mainContent');
+  const uniqueKeySpan = document.getElementById('uniqueKey');
+  const licenseInput = document.getElementById('licenseInput');
+  const activateBtn = document.getElementById('activateBtn');
+  const licenseStatus = document.getElementById('licenseStatus');
+
+  // Check license status on load
+  checkLicenseStatus();
+
+  function checkLicenseStatus() {
+    isLicenseActivated((activated) => {
+      if (activated) {
+        showMainContent();
+        loadMedia();
+      } else {
+        getLicenseKey((key) => {
+          showLicenseSection(key);
+        });
+      }
+    });
+  }
+
+  function showLicenseSection(key) {
+    licenseSection.style.display = 'block';
+    mainContent.style.display = 'none';
+    uniqueKeySpan.textContent = key;
+  }
+
+  function showMainContent() {
+    licenseSection.style.display = 'none';
+    mainContent.style.display = 'block';
+  }
+
+  // Activation handler
+  activateBtn.addEventListener('click', function() {
+    const pass = licenseInput.value.trim();
+    if (!pass) {
+      licenseStatus.textContent = 'Please enter a pass';
+      licenseStatus.style.color = 'red';
+      return;
+    }
+
+    activateLicense(pass, (success) => {
+      if (success) {
+        licenseStatus.textContent = 'License activated successfully!';
+        licenseStatus.style.color = 'green';
+        setTimeout(() => {
+          showMainContent();
+          loadMedia();
+        }, 1500);
+      } else {
+        licenseStatus.textContent = 'Invalid pass. Please try again.';
+        licenseStatus.style.color = 'red';
+      }
+    });
+  });
 
   // Load and display media on popup open
   loadMedia();
@@ -28,41 +85,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Download All button handler
   downloadAllBtn.addEventListener('click', function() {
-    downloadAllBtn.disabled = true;
-    downloadAllBtn.textContent = 'Downloading...';
+    // Check license before allowing download
+    isLicenseActivated((activated) => {
+      if (!activated) {
+        statusDiv.textContent = 'License not activated. Please activate first.';
+        statusDiv.style.color = 'red';
+        setTimeout(() => statusDiv.textContent = '', 3000);
+        return;
+      }
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTabId = tabs[0]?.id;
-      chrome.storage.local.get(['mediaStore'], (result) => {
-        const mediaStore = result.mediaStore || [];
-        const mediaMap = new Map(mediaStore);
-        const currentTabMedia = Array.from(mediaMap.values())
-          .filter(media => media.tabId === activeTabId)
-          .sort((a, b) => b.timestamp - a.timestamp);
+      downloadAllBtn.disabled = true;
+      downloadAllBtn.textContent = 'Downloading...';
 
-        if (currentTabMedia.length === 0) {
-          statusDiv.textContent = 'No media to download';
-          downloadAllBtn.disabled = false;
-          downloadAllBtn.textContent = 'Download All';
-          setTimeout(() => statusDiv.textContent = '', 3000);
-          return;
-        }
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTabId = tabs[0]?.id;
+        chrome.storage.local.get(['mediaStore'], (result) => {
+          const mediaStore = result.mediaStore || [];
+          const mediaMap = new Map(mediaStore);
+          const currentTabMedia = Array.from(mediaMap.values())
+            .filter(media => media.tabId === activeTabId)
+            .sort((a, b) => b.timestamp - a.timestamp);
 
-        let downloadCount = 0;
-        const totalDownloads = currentTabMedia.length;
+          if (currentTabMedia.length === 0) {
+            statusDiv.textContent = 'No media to download';
+            downloadAllBtn.disabled = false;
+            downloadAllBtn.textContent = 'Download All';
+            setTimeout(() => statusDiv.textContent = '', 3000);
+            return;
+          }
 
-        currentTabMedia.forEach(media => {
-          chrome.downloads.download({
-            url: media.url,
-            saveAs: false
-          }, (downloadId) => {
-            downloadCount++;
-            if (downloadCount === totalDownloads) {
-              statusDiv.textContent = `Downloaded ${totalDownloads} files`;
-              downloadAllBtn.disabled = false;
-              downloadAllBtn.textContent = 'Download All';
-              setTimeout(() => statusDiv.textContent = '', 5000);
-            }
+          let downloadCount = 0;
+          const totalDownloads = currentTabMedia.length;
+
+          currentTabMedia.forEach(media => {
+            chrome.downloads.download({
+              url: media.url,
+              saveAs: false
+            }, (downloadId) => {
+              downloadCount++;
+              if (downloadCount === totalDownloads) {
+                statusDiv.textContent = `Downloaded ${totalDownloads} files`;
+                downloadAllBtn.disabled = false;
+                downloadAllBtn.textContent = 'Download All';
+                setTimeout(() => statusDiv.textContent = '', 5000);
+              }
+            });
           });
         });
       });
@@ -153,27 +220,37 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function downloadMedia(url, button) {
-    button.disabled = true;
-    button.textContent = 'Downloading...';
+    // Check license before allowing download
+    isLicenseActivated((activated) => {
+      if (!activated) {
+        statusDiv.textContent = 'License not activated. Please activate first.';
+        statusDiv.style.color = 'red';
+        setTimeout(() => statusDiv.textContent = '', 3000);
+        return;
+      }
 
-    chrome.downloads.download({
-      url: url,
-      saveAs: false
-    }, (downloadId) => {
-      if (chrome.runtime.lastError) {
-        console.error('Download failed:', chrome.runtime.lastError);
-        statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
-        button.disabled = false;
-        button.textContent = 'Download';
-      } else {
-        statusDiv.textContent = 'Download started';
-        button.textContent = 'Downloaded';
-        setTimeout(() => {
+      button.disabled = true;
+      button.textContent = 'Downloading...';
+
+      chrome.downloads.download({
+        url: url,
+        saveAs: false
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('Download failed:', chrome.runtime.lastError);
+          statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
           button.disabled = false;
           button.textContent = 'Download';
-        }, 2000);
-      }
-      setTimeout(() => statusDiv.textContent = '', 5000);
+        } else {
+          statusDiv.textContent = 'Download started';
+          button.textContent = 'Downloaded';
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = 'Download';
+          }, 2000);
+        }
+        setTimeout(() => statusDiv.textContent = '', 5000);
+      });
     });
   }
 

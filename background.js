@@ -11,6 +11,11 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   activeTabId = tabs[0]?.id || null;
 });
 
+// Initialize license on installation
+chrome.runtime.onInstalled.addListener(() => {
+  initLicense();
+});
+
 // Listen for tab activation changes
 chrome.tabs.onActivated.addListener((activeInfo) => {
   activeTabId = activeInfo.tabId;
