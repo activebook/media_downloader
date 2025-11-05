@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>
     <span>Fetch</span>
   `;
+  
+  const DEFAULT_STATUS_TEXT = 'Refresh to scan for media or use Fetch to download all';
 
   // Original code starts here
   const mediaList = document.getElementById('mediaList');
@@ -121,8 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       refreshBtn.disabled = false;
       setTimeout(() => {
-        statusDiv.textContent = '';
-        statusDiv.className = 'text-sm text-gray-600 mt-2';
+        statusDiv.textContent = DEFAULT_STATUS_TEXT;
+        statusDiv.className = 'text-sm text-gray-400 mt-2';
       }, 3000);
     });
   });
@@ -135,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.className = 'text-sm text-red-600 mt-2';
         setTimeout(() => {
-          statusDiv.textContent = '';
-          statusDiv.className = 'text-sm text-gray-600 mt-2';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 3000);
         return;
       }
@@ -161,8 +163,11 @@ document.addEventListener('DOMContentLoaded', function() {
             downloadAllBtn.disabled = false;
             downloadAllBtn.classList.remove('opacity-75');
             downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
-            statusDiv.className = 'text-sm text-gray-600 mt-2';
-            setTimeout(() => statusDiv.textContent = '', 3000);
+            statusDiv.className = 'text-sm text-gray-400 mt-2';
+            setTimeout(() => {
+              statusDiv.textContent = DEFAULT_STATUS_TEXT;
+              statusDiv.className = 'text-sm text-gray-400 mt-2';
+            }, 3000);
             return;
           }
 
@@ -182,8 +187,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 downloadAllBtn.classList.remove('opacity-75');
                 downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
                 setTimeout(() => {
-                  statusDiv.textContent = '';
-                  statusDiv.className = 'text-sm text-gray-600 mt-2';
+                  statusDiv.textContent = DEFAULT_STATUS_TEXT;
+                  statusDiv.className = 'text-sm text-gray-400 mt-2';
                 }, 5000);
               }
             });
@@ -266,16 +271,16 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.textContent = 'URL copied to clipboard';
         statusDiv.className = 'text-sm text-green-600 mt-2';
         setTimeout(() => {
-          statusDiv.textContent = '';
-          statusDiv.className = 'text-sm text-gray-600 mt-2';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 3000);
       } catch (err) {
         console.error('Failed to copy URL: ', err);
         statusDiv.textContent = 'Failed to copy URL';
         statusDiv.className = 'text-sm text-red-600 mt-2';
         setTimeout(() => {
-          statusDiv.textContent = '';
-          statusDiv.className = 'text-sm text-gray-600 mt-2';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 3000);
       }
 
@@ -314,8 +319,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.className = 'text-sm text-red-600 mt-2';
         setTimeout(() => {
-          statusDiv.textContent = '';
-          statusDiv.className = 'text-sm text-gray-600 mt-2';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 3000);
         return;
       }
@@ -333,6 +338,10 @@ document.addEventListener('DOMContentLoaded', function() {
           statusDiv.className = 'text-sm text-red-600 mt-2';
           button.disabled = false;
           button.textContent = 'Download';
+          setTimeout(() => {
+            statusDiv.textContent = DEFAULT_STATUS_TEXT;
+            statusDiv.className = 'text-sm text-gray-400 mt-2';
+          }, 3000);
         } else {
           statusDiv.textContent = 'Download started';
           statusDiv.className = 'text-sm text-green-600 mt-2';
@@ -340,11 +349,13 @@ document.addEventListener('DOMContentLoaded', function() {
           setTimeout(() => {
             button.disabled = false;
             button.textContent = 'Download';
+            statusDiv.textContent = DEFAULT_STATUS_TEXT;
+            statusDiv.className = 'text-sm text-gray-400 mt-2';
           }, 2000);
         }
         setTimeout(() => {
-          statusDiv.textContent = '';
-          statusDiv.className = 'text-sm text-gray-600 mt-2';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 5000);
       });
     });
