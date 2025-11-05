@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', function() {
   const mediaList = document.getElementById('mediaList');
   const refreshBtn = document.getElementById('refreshBtn');
+  const downloadAllBtn = document.getElementById('downloadAllBtn');
   const statusDiv = document.getElementById('status');
 
   // Load and display media on popup open
@@ -25,6 +26,49 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // Download All button handler
+  downloadAllBtn.addEventListener('click', function() {
+    downloadAllBtn.disabled = true;
+    downloadAllBtn.textContent = 'Downloading...';
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeTabId = tabs[0]?.id;
+      chrome.storage.local.get(['mediaStore'], (result) => {
+        const mediaStore = result.mediaStore || [];
+        const mediaMap = new Map(mediaStore);
+        const currentTabMedia = Array.from(mediaMap.values())
+          .filter(media => media.tabId === activeTabId)
+          .sort((a, b) => b.timestamp - a.timestamp);
+
+        if (currentTabMedia.length === 0) {
+          statusDiv.textContent = 'No media to download';
+          downloadAllBtn.disabled = false;
+          downloadAllBtn.textContent = 'Download All';
+          setTimeout(() => statusDiv.textContent = '', 3000);
+          return;
+        }
+
+        let downloadCount = 0;
+        const totalDownloads = currentTabMedia.length;
+
+        currentTabMedia.forEach(media => {
+          chrome.downloads.download({
+            url: media.url,
+            saveAs: false
+          }, (downloadId) => {
+            downloadCount++;
+            if (downloadCount === totalDownloads) {
+              statusDiv.textContent = `Downloaded ${totalDownloads} files`;
+              downloadAllBtn.disabled = false;
+              downloadAllBtn.textContent = 'Download All';
+              setTimeout(() => statusDiv.textContent = '', 5000);
+            }
+          });
+        });
+      });
+    });
+  });
+
   // Listen for storage changes to update list in real-time
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (changes.mediaStore) {
@@ -44,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (mediaStore.length === 0) {
       mediaList.innerHTML = '<div class="no-media">No media detected yet. Try refreshing or interacting with the page.</div>';
+      downloadAllBtn.style.display = 'none';
       return;
     }
 
@@ -59,8 +104,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (currentTabMedia.length === 0) {
         mediaList.innerHTML = '<div class="no-media">No media found on this tab. Try refreshing.</div>';
+        downloadAllBtn.style.display = 'none';
         return;
       }
+
+      // Show Download All button if there is media
+      downloadAllBtn.style.display = 'inline-block';
 
       currentTabMedia.forEach(media => {
         const mediaItem = createMediaItem(media);
