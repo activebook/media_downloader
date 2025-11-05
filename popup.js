@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
   checkLicenseStatus();
 
   function checkLicenseStatus() {
-    isLicenseActivated((activated) => {
+    isLicenseActivated(skip=false, (activated) => {
       if (activated) {
         showMainContent();
         loadMedia();
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Download All button handler
   downloadAllBtn.addEventListener('click', function() {
     // Check license before allowing download
-    isLicenseActivated((activated) => {
+    isLicenseActivated(skip=true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.style.color = 'red';
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function downloadMedia(url, button) {
     // Check license before allowing download
-    isLicenseActivated((activated) => {
+    isLicenseActivated(skip=true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.style.color = 'red';

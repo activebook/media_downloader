@@ -82,9 +82,40 @@ function initLicense() {
 }
 
 // Check if license is activated
-function isLicenseActivated(callback) {
-  chrome.storage.local.get(['licenseActivated'], (result) => {
-    callback(result.licenseActivated || false);
+function isLicenseActivated(skip=false, callback) {
+  if (skip) {
+    callback(true);
+    return;
+  }
+  chrome.storage.local.get(['licenseActivated', 'verificationToken', 'licenseKey'], (result) => {
+    if (result.licenseActivated && result.verificationToken && result.licenseKey) {
+      // Verify the token is valid for this installation
+      chrome.storage.local.get(['storedPass'], (passResult) => {
+        if (passResult.storedPass) {
+          createVerificationToken(result.licenseKey, passResult.storedPass).then(expectedToken => {
+            if (result.verificationToken === expectedToken) {
+              callback(true);
+            } else {
+              // Token mismatch - possible tampering, reset activation
+              resetActivation();
+              callback(false);
+            }
+          });
+        } else {
+          callback(false);
+        }
+      });
+    } else {
+      callback(false);
+    }
+  });
+}
+
+function resetActivation() {
+  chrome.storage.local.set({
+    licenseActivated: false,
+    verificationToken: null,
+    storedPass: null
   });
 }
 
@@ -95,7 +126,13 @@ async function activateLicense(pass) {
       try {
         const isValid = await verifyPass(result.licenseKey, pass);
         if (isValid) {
-          chrome.storage.local.set({ licenseActivated: true }, () => {
+          // Create verification token tied to this specific key
+          const verificationToken = await createVerificationToken(result.licenseKey, pass);
+          chrome.storage.local.set({
+            licenseActivated: true,
+            verificationToken: verificationToken,
+            storedPass: pass  // Store the validated pass
+          }, () => {
             resolve(true);
           });
         } else {
@@ -107,6 +144,14 @@ async function activateLicense(pass) {
       }
     });
   });
+}
+
+async function createVerificationToken(key, pass) {
+  // Fast hash of key + pass for verification
+  const data = new TextEncoder().encode(key + pass + 'verify_salt');
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hash));
+  return hashArray.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Get license key for display
