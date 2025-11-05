@@ -1,6 +1,25 @@
 // Popup script to display media list and handle downloads
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Define button HTML structures as constants
+  const DOWNLOAD_BTN_HTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7 10 12 15 17 10"></polyline>
+      <line x1="12" y1="15" x2="12" y2="3"></line>
+    </svg>
+    <span>Fetch</span>
+  `;
+  
+  const DOWNLOADING_BTN_HTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7 10 12 15 17 10"></polyline>
+      <line x1="12" y1="15" x2="12" y2="3"></line>
+    </svg>
+    <span>Downloading...</span>
+  `;
+
   // Original code starts here
   const mediaList = document.getElementById('mediaList');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -118,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       downloadAllBtn.disabled = true;
-      downloadAllBtn.textContent = 'Downloading...';
+      downloadAllBtn.innerHTML = DOWNLOADING_BTN_HTML;
 
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTabId = tabs[0]?.id;
@@ -132,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (currentTabMedia.length === 0) {
             statusDiv.textContent = 'No media to download';
             downloadAllBtn.disabled = false;
-            downloadAllBtn.textContent = 'Download All';
+            downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
             statusDiv.className = 'text-sm text-gray-600 mt-2';
             setTimeout(() => statusDiv.textContent = '', 3000);
             return;
@@ -151,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusDiv.textContent = `Downloaded ${totalDownloads} files`;
                 statusDiv.className = 'text-sm text-green-600 mt-2';
                 downloadAllBtn.disabled = false;
-                downloadAllBtn.textContent = 'Download All';
+                downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
                 setTimeout(() => {
                   statusDiv.textContent = '';
                   statusDiv.className = 'text-sm text-gray-600 mt-2';

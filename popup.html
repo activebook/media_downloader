@@ -109,15 +109,25 @@
   </div>
   
   <div id="mainContent" class="hidden">
-    <h1 class="text-xl font-bold mb-4">Media Downloader</h1>
-    
-    <div class="mb-4">
-      <button id="refreshBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-        Refresh Media
-      </button>
-      <button id="downloadAllBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ml-2">
-        Download All
-      </button>
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-xl font-bold">Media Downloader</h1>
+      <div class="flex space-x-2">
+        <button id="refreshBtn" class="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center" title="Refresh Media">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Refresh</span>
+        </button>
+        <button id="downloadAllBtn" class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 flex items-center" title="Download All">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Fetch</span>
+        </button>
+      </div>
     </div>
     
     <div id="status" class="text-sm text-gray-600 mt-2"></div>
