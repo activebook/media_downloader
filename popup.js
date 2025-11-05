@@ -254,8 +254,39 @@ document.addEventListener('DOMContentLoaded', function() {
     type.textContent = media.type;
 
     const url = document.createElement('div');
-    url.className = 'text-xs text-gray-500 break-all mt-1';
-    url.textContent = media.url;
+    url.className = 'text-xs text-blue-500 mt-1 cursor-pointer break-all';
+    const fullUrl = media.url;
+    const truncatedUrl = fullUrl.length > 50 ? fullUrl.substring(0, 50) + '...' : fullUrl;
+    url.textContent = truncatedUrl;
+    let isExpanded = false;
+    url.addEventListener('click', async () => {
+      // Copy full URL to clipboard
+      try {
+        await navigator.clipboard.writeText(fullUrl);
+        statusDiv.textContent = 'URL copied to clipboard';
+        statusDiv.className = 'text-sm text-green-600 mt-2';
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.className = 'text-sm text-gray-600 mt-2';
+        }, 3000);
+      } catch (err) {
+        console.error('Failed to copy URL: ', err);
+        statusDiv.textContent = 'Failed to copy URL';
+        statusDiv.className = 'text-sm text-red-600 mt-2';
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.className = 'text-sm text-gray-600 mt-2';
+        }, 3000);
+      }
+
+      // Toggle display
+      isExpanded = !isExpanded;
+      if (isExpanded) {
+        url.textContent = fullUrl;
+      } else {
+        url.textContent = truncatedUrl;
+      }
+    });
 
     const size = document.createElement('div');
     size.className = 'text-xs text-gray-400 mt-1';
