@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <polyline points="7 10 12 15 17 10"></polyline>
       <line x1="12" y1="15" x2="12" y2="3"></line>
     </svg>
-    <span>Downloading...</span>
+    <span>......</span>
   `;
 
   // Original code starts here
