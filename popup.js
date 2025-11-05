@@ -1,6 +1,7 @@
 // Popup script to display media list and handle downloads
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Original code starts here
   const mediaList = document.getElementById('mediaList');
   const refreshBtn = document.getElementById('refreshBtn');
   const downloadAllBtn = document.getElementById('downloadAllBtn');
@@ -44,29 +45,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const pass = licenseInput.value.trim();
     if (!pass) {
       licenseStatus.textContent = 'Please enter a pass';
-      licenseStatus.style.color = 'red';
+      licenseStatus.className = 'text-sm text-red-600 mt-4';
       return;
     }
 
     licenseStatus.textContent = 'Verifying...';
-    licenseStatus.style.color = 'blue';
+    licenseStatus.className = 'text-sm text-blue-600 mt-4';
 
     try {
       const success = await activateLicense(pass);
       if (success) {
         licenseStatus.textContent = 'License activated successfully!';
-        licenseStatus.style.color = 'green';
+        licenseStatus.className = 'text-sm text-green-600 mt-4';
         setTimeout(() => {
           showMainContent();
           loadMedia();
         }, 1500);
       } else {
         licenseStatus.textContent = 'Invalid pass. Please try again.';
-        licenseStatus.style.color = 'red';
+        licenseStatus.className = 'text-sm text-red-600 mt-4';
       }
     } catch (error) {
       licenseStatus.textContent = 'Verification failed. Please try again.';
-      licenseStatus.style.color = 'red';
+      licenseStatus.className = 'text-sm text-red-600 mt-4';
       console.error('License activation error:', error);
     }
   });
@@ -82,12 +83,17 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.sendMessage({ action: 'refresh' }, (response) => {
       if (response && response.status === 'refreshed') {
         statusDiv.textContent = 'Refreshed successfully';
+        statusDiv.className = 'text-sm text-green-600 mt-2';
         loadMedia();
       } else {
         statusDiv.textContent = 'Refresh failed';
+        statusDiv.className = 'text-sm text-red-600 mt-2';
       }
       refreshBtn.disabled = false;
-      setTimeout(() => statusDiv.textContent = '', 3000);
+      setTimeout(() => {
+        statusDiv.textContent = '';
+        statusDiv.className = 'text-sm text-gray-600 mt-2';
+      }, 3000);
     });
   });
 
@@ -97,8 +103,11 @@ document.addEventListener('DOMContentLoaded', function() {
     isLicenseActivated(skip=true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
-        statusDiv.style.color = 'red';
-        setTimeout(() => statusDiv.textContent = '', 3000);
+        statusDiv.className = 'text-sm text-red-600 mt-2';
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.className = 'text-sm text-gray-600 mt-2';
+        }, 3000);
         return;
       }
 
@@ -118,6 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             statusDiv.textContent = 'No media to download';
             downloadAllBtn.disabled = false;
             downloadAllBtn.textContent = 'Download All';
+            statusDiv.className = 'text-sm text-gray-600 mt-2';
             setTimeout(() => statusDiv.textContent = '', 3000);
             return;
           }
@@ -133,9 +143,13 @@ document.addEventListener('DOMContentLoaded', function() {
               downloadCount++;
               if (downloadCount === totalDownloads) {
                 statusDiv.textContent = `Downloaded ${totalDownloads} files`;
+                statusDiv.className = 'text-sm text-green-600 mt-2';
                 downloadAllBtn.disabled = false;
                 downloadAllBtn.textContent = 'Download All';
-                setTimeout(() => statusDiv.textContent = '', 5000);
+                setTimeout(() => {
+                  statusDiv.textContent = '';
+                  statusDiv.className = 'text-sm text-gray-600 mt-2';
+                }, 5000);
               }
             });
           });
@@ -162,8 +176,8 @@ document.addEventListener('DOMContentLoaded', function() {
     mediaList.innerHTML = '';
 
     if (mediaStore.length === 0) {
-      mediaList.innerHTML = '<div class="no-media">No media detected yet. Try refreshing or interacting with the page.</div>';
-      downloadAllBtn.style.display = 'none';
+      mediaList.innerHTML = '<div class="text-center text-gray-500 py-8">No media detected yet. Try refreshing or interacting with the page.</div>';
+      downloadAllBtn.classList.add('hidden');
       return;
     }
 
@@ -178,13 +192,13 @@ document.addEventListener('DOMContentLoaded', function() {
         .sort((a, b) => b.timestamp - a.timestamp);
 
       if (currentTabMedia.length === 0) {
-        mediaList.innerHTML = '<div class="no-media">No media found on this tab. Try refreshing.</div>';
-        downloadAllBtn.style.display = 'none';
+        mediaList.innerHTML = '<div class="text-center text-gray-500 py-8">No media found on this tab. Try refreshing.</div>';
+        downloadAllBtn.classList.add('hidden');
         return;
       }
 
       // Show Download All button if there is media
-      downloadAllBtn.style.display = 'inline-block';
+      downloadAllBtn.classList.remove('hidden');
 
       currentTabMedia.forEach(media => {
         const mediaItem = createMediaItem(media);
@@ -195,21 +209,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function createMediaItem(media) {
     const item = document.createElement('div');
-    item.className = 'media-item';
+    item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
 
     const info = document.createElement('div');
-    info.className = 'media-info';
+    info.className = 'flex-1 mr-3';
 
     const type = document.createElement('div');
-    type.className = 'media-type';
+    type.className = 'font-bold text-gray-800';
     type.textContent = media.type;
 
     const url = document.createElement('div');
-    url.className = 'media-url';
+    url.className = 'text-xs text-gray-500 break-all mt-1';
     url.textContent = media.url;
 
     const size = document.createElement('div');
-    size.className = 'media-size';
+    size.className = 'text-xs text-gray-400 mt-1';
     size.textContent = formatSize(media.size);
 
     info.appendChild(type);
@@ -217,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
     info.appendChild(size);
 
     const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'download-btn';
+    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed';
     downloadBtn.textContent = 'Download';
     downloadBtn.addEventListener('click', () => downloadMedia(media.url, downloadBtn));
 
@@ -232,8 +246,11 @@ document.addEventListener('DOMContentLoaded', function() {
     isLicenseActivated(skip=true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
-        statusDiv.style.color = 'red';
-        setTimeout(() => statusDiv.textContent = '', 3000);
+        statusDiv.className = 'text-sm text-red-600 mt-2';
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.className = 'text-sm text-gray-600 mt-2';
+        }, 3000);
         return;
       }
 
@@ -247,17 +264,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chrome.runtime.lastError) {
           console.error('Download failed:', chrome.runtime.lastError);
           statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
+          statusDiv.className = 'text-sm text-red-600 mt-2';
           button.disabled = false;
           button.textContent = 'Download';
         } else {
           statusDiv.textContent = 'Download started';
+          statusDiv.className = 'text-sm text-green-600 mt-2';
           button.textContent = 'Downloaded';
           setTimeout(() => {
             button.disabled = false;
             button.textContent = 'Download';
           }, 2000);
         }
-        setTimeout(() => statusDiv.textContent = '', 5000);
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.className = 'text-sm text-gray-600 mt-2';
+        }, 5000);
       });
     });
   }

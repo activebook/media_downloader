@@ -30,7 +30,7 @@ chrome.webRequest.onCompleted.addListener(
       return;
     }
 
-    console.log('Web request details:', details.url, details.responseHeaders);
+    // console.log('Web req÷uest details:', details.url, details.responseHeaders);
 
     const contentType = details.responseHeaders?.find(header =>
       header.name.toLowerCase() === 'content-type'
@@ -40,8 +40,8 @@ chrome.webRequest.onCompleted.addListener(
       header.name.toLowerCase() === 'content-disposition'
     )?.value;
 
-    console.log('Content-Type:', contentType);
-    console.log('Content-Disposition:', contentDisposition);
+    // console.log('Content-Type:', contentType);
+    // console.log('Content-Disposition:', contentDisposition);
 
     let isMedia = false;
     let mediaType = contentType;
@@ -58,7 +58,7 @@ chrome.webRequest.onCompleted.addListener(
         if (mediaExtensions.includes(extension)) {
           isMedia = true;
           mediaType = `unknown/${extension}`;
-          console.log('Detected media via content-disposition filename extension:', filename, extension);
+          // console.log('Detected media via content-disposition filename extension:', filename, extension);
         }
       }
     }
@@ -74,7 +74,7 @@ chrome.webRequest.onCompleted.addListener(
         tabId: details.tabId
       };
 
-      console.log('Detected media:', mediaInfo);
+      // console.log('Detected media:', mediaInfo);
 
       // Use URL as key to avoid duplicates
       mediaStore.set(details.url, mediaInfo);

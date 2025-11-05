@@ -4,158 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Media Downloader</title>
-  <style>
-    body {
-      width: 350px;
-      min-height: 400px;
-      margin: 0;
-      padding: 10px;
-      font-family: Arial, sans-serif;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .refresh-btn {
-      background: #4285f4;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    .refresh-btn:hover {
-      background: #3367d6;
-    }
-    .download-all-btn {
-      background: #34a853;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 3px;
-      cursor: pointer;
-      margin-right: 10px;
-      display: none;
-    }
-    .download-all-btn:hover {
-      background: #2d8f47;
-    }
-    .download-all-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    .media-list {
-      max-height: 350px;
-      overflow-y: auto;
-    }
-    .media-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px;
-      border: 1px solid #ddd;
-      margin-bottom: 5px;
-      border-radius: 3px;
-    }
-    .media-info {
-      flex: 1;
-      margin-right: 10px;
-    }
-    .media-url {
-      font-size: 12px;
-      color: #666;
-      word-break: break-all;
-    }
-    .media-type {
-      font-weight: bold;
-      color: #333;
-    }
-    .media-size {
-      font-size: 11px;
-      color: #888;
-    }
-    .download-btn {
-      background: #34a853;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .download-btn:hover {
-      background: #2d8f47;
-    }
-    .download-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    .no-media {
-      text-align: center;
-      color: #666;
-      padding: 20px;
-    }
-    .status {
-      font-size: 12px;
-      color: #666;
-      margin-top: 5px;
-    }
-    .license-section {
-      text-align: center;
-      padding: 20px;
-    }
-    .license-input {
-      width: 100%;
-      padding: 8px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 3px;
-      font-size: 14px;
-    }
-    .activate-btn {
-      background: #4285f4;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .activate-btn:hover {
-      background: #3367d6;
-    }
-    .license-status {
-      font-size: 12px;
-      margin-top: 10px;
-    }
-    .main-content {
-      display: none;
-    }
-  </style>
+  <link rel="stylesheet" href="tailwind.min.css">
 </head>
-<body>
-  <div id="licenseSection" class="license-section">
-    <h3>License Activation Required</h3>
-    <p>Your unique key: <span id="uniqueKey"></span></p>
-    <p>Send this key to the developer to get your activation pass.</p>
-    <input type="text" id="licenseInput" placeholder="Enter activation pass" class="license-input">
-    <button id="activateBtn" class="activate-btn">Activate</button>
-    <div id="licenseStatus" class="license-status"></div>
+<body class="w-[350px] min-h-[400px] m-0 p-4 bg-gray-50 font-sans">
+  <div id="licenseSection" class="text-center p-6 bg-white rounded-lg shadow-md">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">License Activation Required</h3>
+    <p class="text-gray-600 mb-2">Your unique key: <span id="uniqueKey" class="font-mono text-blue-600"></span></p>
+    <p class="text-gray-600 mb-4">Send this key to the developer to get your activation pass.</p>
+    <input type="text" id="licenseInput" placeholder="Enter activation pass" class="w-full p-3 border border-gray-300 rounded-md mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button id="activateBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md font-medium transition-colors">Activate</button>
+    <div id="licenseStatus" class="text-sm mt-4"></div>
   </div>
-  <div id="mainContent" class="main-content" style="display: none;">
-    <div class="header">
-      <h3>Media Downloader</h3>
-      <div>
-        <button id="downloadAllBtn" class="download-all-btn">Download All</button>
-        <button id="refreshBtn" class="refresh-btn">Refresh</button>
+  <div id="mainContent" class="hidden">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-gray-800">Media Downloader</h3>
+      <div class="flex space-x-2">
+        <button id="downloadAllBtn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors hidden disabled:bg-gray-400 disabled:cursor-not-allowed">Download All</button>
+        <button id="refreshBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors">Refresh</button>
       </div>
     </div>
-    <div id="mediaList" class="media-list">
-      <div class="no-media">No media detected yet. Try refreshing or interacting with the page.</div>
+    <div id="mediaList" class="max-h-[350px] overflow-y-auto space-y-2">
+      <div class="text-center text-gray-500 py-8">No media detected yet. Try refreshing or interacting with the page.</div>
     </div>
-    <div id="status" class="status"></div>
+    <div id="status" class="text-sm text-gray-600 mt-2"></div>
   </div>
   <script src="license.js"></script>
   <script src="popup.js"></script>
