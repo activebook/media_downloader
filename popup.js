@@ -249,14 +249,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function createMediaItem(media) {
     const item = document.createElement('div');
-    item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
+
+    // Special styling for bilibili videos
+    const isBilibiliVideo = media.source === 'bilibili original';
+    if (isBilibiliVideo) {
+      item.className = 'flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-green-50 border-2 border-green-300 rounded-md shadow-md';
+    } else {
+      item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
+    }
 
     const info = document.createElement('div');
     info.className = 'flex-1 mr-3';
 
     const type = document.createElement('div');
-    type.className = 'font-bold text-gray-800';
-    type.textContent = media.type;
+    if (isBilibiliVideo) {
+      type.className = 'font-bold text-green-700 flex items-center';
+      type.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="mr-1">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        ${media.type}
+      `;
+    } else {
+      type.className = 'font-bold text-gray-800';
+      type.textContent = media.type;
+    }
 
     const url = document.createElement('div');
     url.className = 'text-xs text-blue-500 mt-1 cursor-pointer break-all';
@@ -294,8 +311,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const size = document.createElement('div');
-    size.className = 'text-xs text-gray-400 mt-1';
-    size.textContent = formatSize(media.size);
+    if (isBilibiliVideo) {
+      size.className = 'text-xs text-cyan-600 mt-1 font-medium';
+      size.textContent = `Source: ${media.source}`;
+    } else {
+      size.className = 'text-xs text-gray-400 mt-1';
+      size.textContent = formatSize(media.size);
+    }
 
     info.appendChild(type);
     info.appendChild(url);

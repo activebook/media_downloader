@@ -22,6 +22,13 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   activeTabId = activeInfo.tabId;
 });
 
+// Listen for tab updates to detect bilibili video pages
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (tabId === activeTabId && changeInfo.status === 'complete' && tab.url) {
+    handleBilibiliVideo(tab.url, tabId);
+  }
+});
+
 // Listen for web requests
 chrome.webRequest.onCompleted.addListener(
   (details) => {
@@ -118,3 +125,62 @@ setInterval(() => {
   }
   chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
 }, 60000); // Check every minute
+
+// Handle bilibili video page detection and API calls
+async function handleBilibiliVideo(url, tabId) {
+  // Check if URL is from bilibili.com and matches video pattern
+  const urlObj = new URL(url);
+  if (!urlObj.hostname.includes('bilibili.com') || !url.includes('/video/')) {
+    return;
+  }
+
+  // Extract BV code using regex
+  const bvMatch = url.match(/\/video\/(BV[0-9A-Za-z]+)/);
+  if (!bvMatch) {
+    return;
+  }
+
+  const bvCode = bvMatch[1];
+  const apiBvCode = bvCode.substring(2); // Remove 'BV' prefix
+
+  try {
+    // Call the API to get MP4 URL
+    const apiUrl = `https://api.injahow.cn/bparse/?bv=${apiBvCode}&otype=url`;
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      console.error('Bilibili API request failed:', response.status);
+      return;
+    }
+
+    const mp4Url = await response.text();
+
+    // Validate that we got a valid URL
+    if (!mp4Url || !mp4Url.startsWith('http')) {
+      console.error('Invalid MP4 URL received from API:', mp4Url);
+      return;
+    }
+
+    // Create media info for the MP4 URL
+    const mediaInfo = {
+      url: mp4Url,
+      type: 'video/mp4 [bilibili video]',
+      size: 'Unknown', // API doesn't provide size
+      timestamp: Date.now(),
+      tabId: tabId,
+      source: 'bilibili original' // Mark as coming from bilibili original video
+    };
+
+    // Add to media store (avoid duplicates)
+    if (!mediaStore.has(mp4Url)) {
+      mediaStore.set(mp4Url, mediaInfo);
+
+      // Store in chrome.storage for persistence
+      chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
+
+      console.log('Added bilibili video to media store:', mp4Url);
+    }
+  } catch (error) {
+    console.error('Error fetching bilibili video URL:', error);
+  }
+}
