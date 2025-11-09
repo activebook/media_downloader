@@ -21,7 +21,7 @@ The Media Downloader Chrome Extension is designed to automatically detect and do
 | QQ Music | ![QQ Music](https://i.imgur.com/wf28xv2.png) |
 | Ximalaya | ![Ximalaya](https://i.imgur.com/IPe2Agr.png) |
 | Netease Cloud Music | ![Netease Cloud Music](https://i.imgur.com/4clSuPr.png) |
-| Bilibili | ![Bilibili](https://i.imgur.com/9vcLQ71.png) |
+| Bilibili | ![Bilibili](https://i.imgur.com/Rt5Saki.png) |
 | Apple Music | ![Apple Music](https://i.imgur.com/EAvoVG3.png) |
 | Spotify | ![Spotify](https://i.imgur.com/YyO7IXE.png) |
 | Download | ![Download](https://i.imgur.com/yo4cVzC.png) |
