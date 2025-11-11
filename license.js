@@ -1,7 +1,8 @@
 // License management utilities
 
 function generateUniqueKey() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  // remove $ sign, because that would treat as variable
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#%^&*';
   let key = '';
   for (let i = 0; i < 16; i++) {
     key += chars.charAt(Math.floor(Math.random() * chars.length));
