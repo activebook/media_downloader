@@ -227,9 +227,15 @@ document.addEventListener('DOMContentLoaded', function() {
       const mediaMap = new Map(mediaStore);
 
       // Filter media for current tab and sort by timestamp (newest first)
-      const currentTabMedia = Array.from(mediaMap.values())
+      let currentTabMedia = Array.from(mediaMap.values())
         .filter(media => media.tabId === activeTabId)
         .sort((a, b) => b.timestamp - a.timestamp);
+
+      // If there are bilibili original videos, remove application/octet-stream entries
+      const hasBilibiliOriginal = currentTabMedia.some(media => media.source === 'bilibili original');
+      if (hasBilibiliOriginal) {
+        currentTabMedia = currentTabMedia.filter(media => media.type !== 'application/octet-stream');
+      }
 
       if (currentTabMedia.length === 0) {
         mediaList.innerHTML = '<div class="text-center text-gray-500 py-8">No media found on this tab. Try refreshing.</div>';

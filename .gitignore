@@ -56,3 +56,7 @@ test_pages/*.mp4
 test_pages/*.mp3
 test_pages/*.webm
 test_pages/*.ogg
+
+# Private Key
+*.pem
+public_key.txt
