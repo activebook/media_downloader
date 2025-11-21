@@ -1,6 +1,6 @@
 // Popup script to display media list and handle downloads
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   // Define button HTML structures as constants
   const DOWNLOAD_BTN_HTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>
     <span>Fetch</span>
   `;
-  
+
   const DOWNLOADING_SPINNER_HTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
       <line x1="12" y1="2" x2="12" y2="6"></line>
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>
     <span>Fetch</span>
   `;
-  
+
   const DEFAULT_STATUS_TEXT = 'Refresh to scan for media or use Fetch to download all';
 
   // Original code starts here
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
   checkLicenseStatus();
 
   function checkLicenseStatus() {
-    isLicenseActivated(skip=false, (activated) => {
+    isLicenseActivated(skip = false, (activated) => {
       if (activated) {
         showMainContent();
         loadMedia();
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
     licenseSection.style.display = 'block';
     mainContent.style.display = 'none';
     uniqueKeySpan.textContent = key;
-    
+
     // Add event listener for copy button if it exists
     if (copyKeyBtn) {
       copyKeyBtn.addEventListener('click', copyUniqueKeyToClipboard);
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Activation handler
-  activateBtn.addEventListener('click', async function() {
+  activateBtn.addEventListener('click', async function () {
     const pass = licenseInput.value.trim();
     if (!pass) {
       licenseStatus.textContent = 'Please enter a pass';
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadMedia();
 
   // Refresh button handler
-  refreshBtn.addEventListener('click', function() {
+  refreshBtn.addEventListener('click', function () {
     statusDiv.textContent = 'Refreshing...';
     refreshBtn.disabled = true;
 
@@ -130,9 +130,9 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Download All button handler
-  downloadAllBtn.addEventListener('click', function() {
+  downloadAllBtn.addEventListener('click', function () {
     // Check license before allowing download
-    isLicenseActivated(skip=true, (activated) => {
+    isLicenseActivated(skip = true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.className = 'text-sm text-red-600 mt-2';
@@ -171,27 +171,67 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
           }
 
+
           let downloadCount = 0;
           const totalDownloads = currentTabMedia.length;
 
+          function updateBatchProgress() {
+            if (downloadCount === totalDownloads) {
+              statusDiv.textContent = `Downloaded ${totalDownloads} files`;
+              statusDiv.className = 'text-sm text-green-600 mt-2';
+              downloadAllBtn.disabled = false;
+              downloadAllBtn.classList.remove('opacity-75');
+              downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
+              setTimeout(() => {
+                statusDiv.textContent = DEFAULT_STATUS_TEXT;
+                statusDiv.className = 'text-sm text-gray-400 mt-2';
+              }, 5000);
+            }
+          }
+
           currentTabMedia.forEach(media => {
-            chrome.downloads.download({
-              url: media.url,
-              saveAs: false
-            }, (downloadId) => {
-              downloadCount++;
-              if (downloadCount === totalDownloads) {
-                statusDiv.textContent = `Downloaded ${totalDownloads} files`;
-                statusDiv.className = 'text-sm text-green-600 mt-2';
-                downloadAllBtn.disabled = false;
-                downloadAllBtn.classList.remove('opacity-75');
-                downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
-                setTimeout(() => {
-                  statusDiv.textContent = DEFAULT_STATUS_TEXT;
-                  statusDiv.className = 'text-sm text-gray-400 mt-2';
-                }, 5000);
-              }
-            });
+            // Use appropriate download method based on media type
+            if (isVideoType(media.type)) {
+              // For videos, use content script (has page cookies)
+              chrome.tabs.sendMessage(activeTabId, {
+                action: 'downloadVideoFromPage',
+                url: media.url,
+                filename: `video_${Date.now()}.mp4`
+              }, (response) => {
+                if (chrome.runtime.lastError || !response || !response.success) {
+                  // Content script failed, use direct download as fallback
+                  chrome.downloads.download({
+                    url: media.url,
+                    saveAs: false
+                  }, () => {
+                    downloadCount++;
+                    updateBatchProgress();
+                  });
+                } else {
+                  downloadCount++;
+                  updateBatchProgress();
+                }
+              });
+            } else {
+              // Audio and other media - use direct download
+              chrome.downloads.download({
+                url: media.url,
+                saveAs: false
+              }, (downloadId) => {
+                downloadCount++;
+                if (downloadCount === totalDownloads) {
+                  statusDiv.textContent = `Downloaded ${totalDownloads} files`;
+                  statusDiv.className = 'text-sm text-green-600 mt-2';
+                  downloadAllBtn.disabled = false;
+                  downloadAllBtn.classList.remove('opacity-75');
+                  downloadAllBtn.innerHTML = DOWNLOAD_BTN_HTML;
+                  setTimeout(() => {
+                    statusDiv.textContent = DEFAULT_STATUS_TEXT;
+                    statusDiv.className = 'text-sm text-gray-400 mt-2';
+                  }, 5000);
+                }
+              });
+            }
           });
         });
       });
@@ -332,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed';
     downloadBtn.textContent = 'Download';
-    downloadBtn.addEventListener('click', () => downloadMedia(media.url, downloadBtn));
+    downloadBtn.addEventListener('click', () => downloadMedia(media.url, media.type, downloadBtn));
 
     item.appendChild(info);
     item.appendChild(downloadBtn);
@@ -340,9 +380,91 @@ document.addEventListener('DOMContentLoaded', function() {
     return item;
   }
 
-  function downloadMedia(url, button) {
+  function isVideoType(mediaType) {
+    return mediaType && mediaType.toLowerCase().startsWith('video/');
+  }
+
+  async function downloadVideoWithFetch(url, mediaType, button, tabUrl) {
+    try {
+      button.disabled = true;
+      button.textContent = 'Fetching...';
+      statusDiv.textContent = 'Initiating download...';
+      statusDiv.className = 'text-sm text-blue-600 mt-2';
+
+      // Get current tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0]?.id;
+
+      if (!tabId) {
+        throw new Error('No active tab found');
+      }
+
+      // Send message to content script to download from page context
+      chrome.tabs.sendMessage(tabId, {
+        action: 'downloadVideoFromPage',
+        url: url,
+        filename: `video_${Date.now()}.mp4`
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Content script communication error:', chrome.runtime.lastError);
+          // Fallback to direct download
+          fallbackDirectDownload(url, button);
+          return;
+        }
+
+        if (response && response.success) {
+          statusDiv.textContent = 'Download started';
+          statusDiv.className = 'text-sm text-green-600 mt-2';
+          button.textContent = 'Downloaded';
+
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = 'Download';
+            statusDiv.textContent = DEFAULT_STATUS_TEXT;
+            statusDiv.className = 'text-sm text-gray-400 mt-2';
+          }, 2000);
+        } else {
+          // Content script download failed, use direct download
+          console.error('Content script download failed:', response?.error);
+          fallbackDirectDownload(url, button);
+        }
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      fallbackDirectDownload(url, button);
+    }
+  }
+
+  function fallbackDirectDownload(url, button) {
+    button.textContent = 'Downloading...';
+    chrome.downloads.download({ url: url, saveAs: false }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        console.error('Direct download also failed:', chrome.runtime.lastError);
+        statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
+        statusDiv.className = 'text-sm text-red-600 mt-2';
+        button.disabled = false;
+        button.textContent = 'Download';
+      } else {
+        statusDiv.textContent = 'Download started (direct fallback)';
+        statusDiv.className = 'text-sm text-green-600 mt-2';
+        button.textContent = 'Downloaded';
+        setTimeout(() => {
+          button.disabled = false;
+          button.textContent = 'Download';
+          statusDiv.textContent = DEFAULT_STATUS_TEXT;
+          statusDiv.className = 'text-sm text-gray-400 mt-2';
+        }, 2000);
+      }
+      setTimeout(() => {
+        statusDiv.textContent = DEFAULT_STATUS_TEXT;
+        statusDiv.className = 'text-sm text-gray-400 mt-2';
+      }, 5000);
+    });
+  }
+
+  function downloadMedia(url, mediaType, button) {
     // Check license before allowing download
-    isLicenseActivated(skip=true, (activated) => {
+    isLicenseActivated(skip = true, (activated) => {
       if (!activated) {
         statusDiv.textContent = 'License not activated. Please activate first.';
         statusDiv.className = 'text-sm text-red-600 mt-2';
@@ -353,39 +475,49 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      button.disabled = true;
-      button.textContent = 'Downloading...';
+      // Use fetch method for videos, direct download for audio
+      if (isVideoType(mediaType)) {
+        // Get current tab URL to use as referer
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const tabUrl = tabs[0]?.url || '';
+          downloadVideoWithFetch(url, mediaType, button, tabUrl);
+        });
+      } else {
+        // Audio and other media - use direct download
+        button.disabled = true;
+        button.textContent = 'Downloading...';
 
-      chrome.downloads.download({
-        url: url,
-        saveAs: false
-      }, (downloadId) => {
-        if (chrome.runtime.lastError) {
-          console.error('Download failed:', chrome.runtime.lastError);
-          statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
-          statusDiv.className = 'text-sm text-red-600 mt-2';
-          button.disabled = false;
-          button.textContent = 'Download';
-          setTimeout(() => {
-            statusDiv.textContent = DEFAULT_STATUS_TEXT;
-            statusDiv.className = 'text-sm text-gray-400 mt-2';
-          }, 3000);
-        } else {
-          statusDiv.textContent = 'Download started';
-          statusDiv.className = 'text-sm text-green-600 mt-2';
-          button.textContent = 'Downloaded';
-          setTimeout(() => {
+        chrome.downloads.download({
+          url: url,
+          saveAs: false
+        }, (downloadId) => {
+          if (chrome.runtime.lastError) {
+            console.error('Download failed:', chrome.runtime.lastError);
+            statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
+            statusDiv.className = 'text-sm text-red-600 mt-2';
             button.disabled = false;
             button.textContent = 'Download';
+            setTimeout(() => {
+              statusDiv.textContent = DEFAULT_STATUS_TEXT;
+              statusDiv.className = 'text-sm text-gray-400 mt-2';
+            }, 3000);
+          } else {
+            statusDiv.textContent = 'Download started';
+            statusDiv.className = 'text-sm text-green-600 mt-2';
+            button.textContent = 'Downloaded';
+            setTimeout(() => {
+              button.disabled = false;
+              button.textContent = 'Download';
+              statusDiv.textContent = DEFAULT_STATUS_TEXT;
+              statusDiv.className = 'text-sm text-gray-400 mt-2';
+            }, 2000);
+          }
+          setTimeout(() => {
             statusDiv.textContent = DEFAULT_STATUS_TEXT;
             statusDiv.className = 'text-sm text-gray-400 mt-2';
-          }, 2000);
-        }
-        setTimeout(() => {
-          statusDiv.textContent = DEFAULT_STATUS_TEXT;
-          statusDiv.className = 'text-sm text-gray-400 mt-2';
-        }, 5000);
-      });
+          }, 5000);
+        });
+      }
     });
   }
 

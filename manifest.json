@@ -1,8 +1,7 @@
 {
   "manifest_version": 3,
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqxjM4Dp/lqxpYWQSp2P3inX6/STHqU0mwdxIwaApQQzF2J5YJUhiw+lVqzjTREJnlhQATYgKHkT3Hd2uhb3sXy/DResipXAy189r1nzbOltYGEMLbej1WXyh7RsouQRGxhK/xgZLeqBe6KwzI9AlSShduu6WwIClWYJiDc/6Jbqf2oSP/RX7kBerDzik0VxBK2q9lRPYBm+/33QiwXIOmXCVYzqjxMc/MKKYAW3eNpA/EMcmmK3fKdVPhKOrVElvXEAOeE9uuuLvxXRDYavS/ygjmpprs0IWTts8hJgeeROr60BuoN3FfnDB+ntDojg7KnFIUoQdyMtb/n5yH6FEdwIDAQAB",
   "name": "Media Downloader",
-  "version": "1.5",
+  "version": "1.6",
   "description": "Detects and downloads video and audio media from web pages",
   "permissions": [
     "webRequest",
@@ -19,6 +18,17 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Media Downloader",
