@@ -44,3 +44,309 @@ async function downloadVideoInPageContext(url, filename) {
         throw error;
     }
 }
+
+// --- DOM Media Detection Logic ---
+
+function scanForMedia() {
+    // Find all video and audio elements
+    const mediaElements = document.querySelectorAll('video, audio');
+
+    mediaElements.forEach(element => {
+        let src = element.currentSrc || element.src;
+        if (!src && element.querySelector('source')) {
+            src = element.querySelector('source').src;
+        }
+
+        // Skip if no src or if it's a blob/mediasource (which we might not be able to download easily via simple link)
+        // However, for this task, we want to catch mp4s mostly.
+        if (src && (src.startsWith('http') || src.startsWith('blob:'))) {
+            // For blob: URLs, we can't download them directly usually, but report them anyway
+            // The extension might handle them or user might want to know.
+            // But the main goal is standard files.
+
+            // Check if it's already reported? We send it, background de-dupes.
+
+            const type = element.tagName.toLowerCase() === 'video' ? 'video/mp4' : 'audio/mp3'; // Guess fallback
+
+            // Check if extension context is valid
+            if (chrome.runtime?.id) {
+                try {
+                    chrome.runtime.sendMessage({
+                        action: 'mediaDetected',
+                        mediaInfo: {
+                            url: src,
+                            type: type,
+                            size: 'Unknown',
+                            timestamp: Date.now(),
+                            source: 'blob'
+                        }
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            // Ignored: Receiver might not exist or other runtime error
+                        }
+                    });
+                } catch (e) {
+                    console.log('Extension context invalidated, stopping scan reports.');
+                }
+            }
+        }
+    });
+}
+
+// --- HLS Download Logic ---
+// Implemented in content script to have access to DOM APIs like URL.createObjectURL
+
+// HLS State Tracking
+let isHLSCancelled = true;
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'downloadHLS') {
+        isHLSCancelled = false;
+
+        // Initialize state and respond immediately so UI can switch
+        const initialState = {
+            isDownloading: true,
+            status: 'downloading',
+            url: request.url,
+            filename: request.filename,
+            downloadedSegments: 0,
+            totalSegments: 0
+        };
+
+        chrome.storage.local.set({ hlsDownloadState: initialState }, () => {
+            if (chrome.runtime.lastError) {
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+
+            // Respond success to popup so it redirects
+            sendResponse({ success: true });
+
+            // Start the actual download process asynchronously
+            downloadHLSInPage(request.url, request.filename)
+                .catch(err => {
+                    console.error('HLS Download failed:', err);
+                    // Update state to error since we already told popup it started
+                    chrome.storage.local.set({
+                        hlsDownloadState: {
+                            isDownloading: false,
+                            status: 'error',
+                            error: err.message,
+                            url: request.url
+                        }
+                    });
+                });
+        });
+
+        return true; // Keep channel open for the storage set callback
+    }
+
+    if (request.action === 'cancelHLSDownload') {
+        isHLSCancelled = true;
+        // Just report success, the loop in downloadHLSInPage will catch the flag
+        sendResponse({ success: true });
+    }
+});
+
+async function downloadHLSInPage(url, filename) {
+    const updateState = (state) => {
+        chrome.storage.local.set({ hlsDownloadState: state });
+    };
+
+    try {
+        console.log('Starting HLS download (Content Script) for:', url);
+        // Initial state is already set by the message listener to ensure UI responsiveness
+
+
+        // 1. Fetch the playlist
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch playlist: ${response.status}`);
+        let playlistText = await response.text();
+
+        if (isHLSCancelled) throw new Error('Cancelled by user');
+
+        // 2. Check if Master Playlist (contains other m3u8 links)
+        if (playlistText.includes('#EXT-X-STREAM-INF')) {
+            console.log('Detected Master Playlist, resolving best stream...');
+            const lines = playlistText.split('\n');
+            let bestUrl = null;
+            let maxBandwidth = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
+                    const bandwidthMatch = lines[i].match(/BANDWIDTH=(\d+)/);
+                    const bandwidth = bandwidthMatch ? parseInt(bandwidthMatch[1]) : 0;
+
+                    let streamUrl = lines[i + 1];
+                    if (streamUrl && !streamUrl.startsWith('#')) {
+                        if (bandwidth > maxBandwidth) {
+                            maxBandwidth = bandwidth;
+                            bestUrl = resolveUrl(url, streamUrl);
+                        }
+                    }
+                }
+            }
+
+            if (bestUrl) {
+                console.log(`Switching to best stream (Bandwidth: ${maxBandwidth}):`, bestUrl);
+                return downloadHLSInPage(bestUrl, filename);
+            }
+        }
+
+        // 3. Parse Segments
+        const lines = playlistText.split('\n');
+        const segmentUrls = [];
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line && !line.startsWith('#')) {
+                segmentUrls.push(resolveUrl(url, line));
+            }
+        }
+
+        if (segmentUrls.length === 0) {
+            throw new Error('No segments found in playlist');
+        }
+
+        console.log(`Found ${segmentUrls.length} segments. Starting download...`);
+        updateState({
+            isDownloading: true,
+            status: 'downloading',
+            url: url,
+            filename: filename,
+            downloadedSegments: 0,
+            totalSegments: segmentUrls.length
+        });
+
+        // 4. Download Segments
+        const chunks = [];
+        const BATCH_SIZE = 5;
+
+        for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
+            if (isHLSCancelled) throw new Error('Cancelled by user');
+
+            const batch = segmentUrls.slice(i, i + BATCH_SIZE);
+            const promises = batch.map(segUrl => fetch(segUrl).then(res => res.arrayBuffer()));
+
+            try {
+                // Promise.all preserves the order of the results, matching the order of the input array, regardless of which request finishes first.
+                const buffers = await Promise.all(promises);
+                chunks.push(...buffers);
+
+                const downloadedCount = Math.min(i + BATCH_SIZE, segmentUrls.length);
+                console.log(`Downloaded ${downloadedCount}/${segmentUrls.length} segments`);
+
+                updateState({
+                    isDownloading: true,
+                    status: 'downloading',
+                    url: url,
+                    filename: filename,
+                    downloadedSegments: downloadedCount,
+                    totalSegments: segmentUrls.length
+                });
+
+            } catch (err) {
+                console.error('Error fetching segment batch:', err);
+                throw new Error('Failed to download some segments');
+            }
+        }
+
+        if (isHLSCancelled) throw new Error('Cancelled by user');
+
+        // 5. Merge
+        console.log('Merging segments...');
+        updateState({
+            isDownloading: true,
+            status: 'merging',
+            url: url,
+            filename: filename,
+            downloadedSegments: segmentUrls.length,
+            totalSegments: segmentUrls.length
+        });
+
+        const combinedBlob = new Blob(chunks, { type: 'video/mp2t' });
+
+        // 6. Download using DOM
+        console.log('Triggering DOM download...');
+        const blobUrl = URL.createObjectURL(combinedBlob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename || 'video.ts';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+
+        updateState({
+            isDownloading: false,
+            status: 'complete',
+            url: url,
+            filename: filename,
+            downloadedSegments: segmentUrls.length,
+            totalSegments: segmentUrls.length
+        });
+
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+            // Optionally clear state after a delay or let UI clear it
+        }, 10000);
+
+        console.log('HLS Download initiated');
+        return true;
+
+    } catch (error) {
+        if (error.message === 'Cancelled by user') {
+            console.log('Download cancelled');
+        } else {
+            console.error('HLS Process Error:', error);
+            updateState({
+                isDownloading: false,
+                status: 'error',
+                error: error.message,
+                url: url
+            });
+        }
+        throw error;
+    }
+}
+
+function resolveUrl(baseUrl, relativeUrl) {
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    try {
+        return new URL(relativeUrl, baseUrl).href;
+    } catch (e) {
+        return relativeUrl;
+    }
+}
+
+// Initial scan
+scanForMedia();
+
+// Watch for changes/new media
+const observer = new MutationObserver((mutations) => {
+    let shouldScan = false;
+    for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+            shouldScan = true;
+            break;
+        }
+        if (mutation.type === 'attributes' && (mutation.attributeName === 'src' || mutation.attributeName === 'currentSrc')) {
+            shouldScan = true;
+            break;
+        }
+    }
+
+    if (shouldScan) {
+        scanForMedia();
+    }
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['src', 'currentSrc']
+});
+
+// Periodic scan fallback
+setInterval(scanForMedia, 5000);

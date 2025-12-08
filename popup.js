@@ -40,6 +40,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const licenseStatus = document.getElementById('licenseStatus');
   const copyKeyBtn = document.getElementById('copyKeyBtn');
 
+  // Check for active download state immediately
+  chrome.storage.local.get(['hlsDownloadState'], (result) => {
+    const state = result.hlsDownloadState;
+    if (state && state.isDownloading) {
+      window.location.replace('download.html'); // Use replace to prevent back-button loops
+    }
+  });
+
   // Check license status on load
   checkLicenseStatus();
 
@@ -240,6 +248,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Listen for storage changes to update list in real-time
   chrome.storage.onChanged.addListener((changes, namespace) => {
+    // Immediate redirect if download starts
+    if (changes.hlsDownloadState && changes.hlsDownloadState.newValue?.isDownloading) {
+      window.location.replace('download.html');
+      return;
+    }
+
     if (changes.mediaStore) {
       loadMedia();
     }
@@ -298,11 +312,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Special styling for bilibili videos
     const isBilibiliVideo = media.source === 'bilibili original';
+    // Check if HLS
+    const isHLS = media.url.includes('.m3u8') || (media.type && (media.type.includes('mpegurl') || media.type.includes('hls')));
+
     if (isBilibiliVideo) {
       item.className = 'flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-green-50 border-2 border-green-300 rounded-md shadow-md';
+    } else if (isHLS) {
+      item.className = 'flex flex-col p-3 bg-purple-50 border border-purple-200 rounded-md shadow-sm';
     } else {
       item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
     }
+
+    // Top row for info
+    const infoRow = document.createElement('div');
+    infoRow.className = 'flex justify-between items-center w-full';
 
     const info = document.createElement('div');
     info.className = 'flex-1 mr-3';
@@ -316,6 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
         </svg>
         ${media.type}
       `;
+    } else if (isHLS) {
+      type.className = 'font-bold text-purple-700 flex items-center';
+      type.innerHTML = 'HLS Stream (M3U8)';
     } else {
       type.className = 'font-bold text-gray-800';
       type.textContent = media.type;
@@ -339,12 +365,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 3000);
       } catch (err) {
         console.error('Failed to copy URL: ', err);
-        statusDiv.textContent = 'Failed to copy URL';
-        statusDiv.className = 'text-sm text-red-600 mt-2';
-        setTimeout(() => {
-          statusDiv.textContent = DEFAULT_STATUS_TEXT;
-          statusDiv.className = 'text-sm text-gray-400 mt-2';
-        }, 3000);
       }
 
       // Toggle display
@@ -370,12 +390,73 @@ document.addEventListener('DOMContentLoaded', function () {
     info.appendChild(size);
 
     const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed';
-    downloadBtn.textContent = 'Download';
+    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap ml-2';
+    downloadBtn.textContent = isHLS ? 'Download .m3u8' : 'Download';
     downloadBtn.addEventListener('click', () => downloadMedia(media.url, media.type, downloadBtn));
 
-    item.appendChild(info);
-    item.appendChild(downloadBtn);
+    infoRow.appendChild(info);
+    infoRow.appendChild(downloadBtn);
+    item.appendChild(infoRow);
+
+    // Extra row for HLS to show ffmpeg command OR merged download
+    if (isHLS) {
+      const hlsRow = document.createElement('div');
+      hlsRow.className = 'mt-2 pt-2 border-t border-purple-200 w-full flex flex-col gap-2';
+
+      // Merged Download Button
+      const mergeBtn = document.createElement('button');
+      mergeBtn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+      mergeBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download
+        `;
+
+      mergeBtn.addEventListener('click', () => {
+        mergeBtn.disabled = true;
+        mergeBtn.innerHTML = 'Starting Download... (Check Network)';
+        mergeBtn.className = 'w-full bg-gray-500 text-white px-3 py-2 rounded-md text-xs font-medium cursor-wait flex items-center justify-center';
+
+        // Send to active tab (content script) because Service Worker cannot easily create Blob URLs
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const activeTabId = tabs[0]?.id;
+          if (!activeTabId) {
+            mergeBtn.textContent = 'Error: No Active Tab';
+            mergeBtn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
+            return;
+          }
+
+          chrome.tabs.sendMessage(activeTabId, {
+            action: 'downloadHLS',
+            url: media.url,
+            filename: 'video_m3u8_' + Date.now() + '.ts'
+          }, (response) => {
+            if (chrome.runtime.lastError || !response || !response.success) {
+              mergeBtn.textContent = 'Failed (See Console)';
+              mergeBtn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
+              console.error(response?.error || chrome.runtime.lastError);
+
+              // Restore button after delay
+              setTimeout(() => {
+                mergeBtn.disabled = false;
+                mergeBtn.innerHTML = `
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                              Download
+                          `;
+                mergeBtn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+              }, 3000);
+
+            } else {
+              // Redirect to download page
+              window.location.replace('download.html');
+            }
+          });
+        });
+      });
+
+      hlsRow.appendChild(mergeBtn);
+
+      item.appendChild(hlsRow);
+    }
 
     return item;
   }
