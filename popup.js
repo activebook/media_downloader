@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
             action: 'downloadHLS',
             url: media.url,
             filename: 'video_m3u8_' + Date.now() + '.ts'
-          }, (response) => {
+          }, { frameId: 0 }, (response) => {
             if (chrome.runtime.lastError || !response || !response.success) {
               mergeBtn.textContent = 'Failed (See Console)';
               mergeBtn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';

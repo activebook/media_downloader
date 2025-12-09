@@ -42,17 +42,17 @@ chrome.webRequest.onCompleted.addListener(
     // console.log('Web req÷uest details:', details.url, details.responseHeaders);
 
     // If a known HLS download is active, ignore TS/segment files to prevent self-detection flood
-    if (isDownloadingActive) {
-      if (details.url.endsWith('.ts') || details.url.includes('.ts?')) {
-        return;
-      }
-      const type = details.responseHeaders?.find(header => header.name.toLowerCase() === 'content-type')?.value;
-      if (type === 'video/mp2t' || type === 'application/octet-stream') {
-        // Strict check: if it looks like a segment and we are downloading, ignore it.
-        // We can be more aggressive here if needed.
-        return;
-      }
+    // if (isDownloadingActive) {
+    // Regardless of download state, ignore TS/segment files to prevent self-detection flood
+    if (details.url.endsWith('.ts') || details.url.includes('.ts?')) {
+      return;
     }
+    const type = details.responseHeaders?.find(header => header.name.toLowerCase() === 'content-type')?.value;
+    if (type === 'video/mp2t' || type === 'application/octet-stream') {
+      // Strict check: if it looks like a segment, ignore it.
+      return;
+    }
+    // }
 
     const contentType = details.responseHeaders?.find(header =>
       header.name.toLowerCase() === 'content-type'

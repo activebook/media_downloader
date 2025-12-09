@@ -97,11 +97,20 @@ function scanForMedia() {
 // Implemented in content script to have access to DOM APIs like URL.createObjectURL
 
 // HLS State Tracking
-let isHLSCancelled = true;
+let hlsAbortController = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'downloadHLS') {
-        isHLSCancelled = false;
+        // Ensure only the main frame processes the download to avoid duplicates (since content script runs in all frames)
+        if (window !== window.top) {
+            return;
+        }
+
+        // Cancel any existing download first
+        if (hlsAbortController) {
+            hlsAbortController.abort();
+        }
+        hlsAbortController = new AbortController();
 
         // Initialize state and respond immediately so UI can switch
         const initialState = {
@@ -123,7 +132,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ success: true });
 
             // Start the actual download process asynchronously
-            downloadHLSInPage(request.url, request.filename)
+            downloadHLSInPage(request.url, request.filename, hlsAbortController.signal)
                 .catch(err => {
                     console.error('HLS Download failed:', err);
                     // Update state to error since we already told popup it started
@@ -142,14 +151,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'cancelHLSDownload') {
-        isHLSCancelled = true;
+        chrome.storage.local.set({
+            hlsDownloadState: {
+                isDownloading: false,
+                status: 'cancelled',
+            }
+        });
+        if (hlsAbortController) {
+            hlsAbortController.abort();
+            hlsAbortController = null;
+        }
         // Just report success, the loop in downloadHLSInPage will catch the flag
         sendResponse({ success: true });
     }
 });
 
-async function downloadHLSInPage(url, filename) {
+async function downloadHLSInPage(url, filename, signal) {
     const updateState = (state) => {
+        if (signal.aborted) {
+            console.log('Signal aborted, skipping state update');
+            return;
+        }
         chrome.storage.local.set({ hlsDownloadState: state });
     };
 
@@ -159,11 +181,9 @@ async function downloadHLSInPage(url, filename) {
 
 
         // 1. Fetch the playlist
-        const response = await fetch(url);
+        const response = await fetch(url, { signal });
         if (!response.ok) throw new Error(`Failed to fetch playlist: ${response.status}`);
         let playlistText = await response.text();
-
-        if (isHLSCancelled) throw new Error('Cancelled by user');
 
         // 2. Check if Master Playlist (contains other m3u8 links)
         if (playlistText.includes('#EXT-X-STREAM-INF')) {
@@ -189,7 +209,7 @@ async function downloadHLSInPage(url, filename) {
 
             if (bestUrl) {
                 console.log(`Switching to best stream (Bandwidth: ${maxBandwidth}):`, bestUrl);
-                return downloadHLSInPage(bestUrl, filename);
+                return downloadHLSInPage(bestUrl, filename, signal);
             }
         }
 
@@ -223,10 +243,8 @@ async function downloadHLSInPage(url, filename) {
         const BATCH_SIZE = 5;
 
         for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
-            if (isHLSCancelled) throw new Error('Cancelled by user');
-
             const batch = segmentUrls.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(segUrl => fetch(segUrl).then(res => res.arrayBuffer()));
+            const promises = batch.map(segUrl => fetch(segUrl, { signal }).then(res => res.arrayBuffer()));
 
             try {
                 // Promise.all preserves the order of the results, matching the order of the input array, regardless of which request finishes first.
@@ -246,12 +264,15 @@ async function downloadHLSInPage(url, filename) {
                 });
 
             } catch (err) {
+                if (err.name === 'AbortError') throw err; // Re-throw cancel signal to outer block
                 console.error('Error fetching segment batch:', err);
                 throw new Error('Failed to download some segments');
             }
         }
 
-        if (isHLSCancelled) throw new Error('Cancelled by user');
+        if (segmentUrls.length === 0) {
+            throw new Error('No segments found in playlist');
+        }
 
         // 5. Merge
         console.log('Merging segments...');
@@ -295,8 +316,15 @@ async function downloadHLSInPage(url, filename) {
         return true;
 
     } catch (error) {
-        if (error.message === 'Cancelled by user') {
-            console.log('Download cancelled');
+        if (error.name === 'AbortError') {
+            console.log('Download cancelled by user (AbortController)');
+            updateState({
+                isDownloading: false,
+                status: 'cancelled',
+            });
+            // Do NOT update state here, as the UI has already cleared it or is about to.
+            // Or explicitly set cancelled if needed, but usually silence is golden for aborts.
+            return;
         } else {
             console.error('HLS Process Error:', error);
             updateState({
