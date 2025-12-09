@@ -432,9 +432,9 @@ document.addEventListener('DOMContentLoaded', function () {
             tabId: activeTabId // explicit pass for state tracking
           }, { frameId: 0 }, (response) => {
             if (chrome.runtime.lastError || !response || !response.success) {
-              mergeBtn.textContent = 'Failed (See Console)';
+              mergeBtn.textContent = 'Failed (Reload Page)';
               mergeBtn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
-              console.error(response?.error || chrome.runtime.lastError);
+              console.log(response?.error || chrome.runtime.lastError);
 
               // Restore button after delay
               setTimeout(() => {
