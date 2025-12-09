@@ -12,9 +12,14 @@ A Chrome extension that automatically detects video and audio media on web pages
 
 ## Features
 
-The Media Downloader Chrome Extension is designed to automatically detect and download media files from various websites, including popular platforms like **QQ Music**, **Ximalaya**, **Netease Cloud Music**, **Bilibili**, **Suno**, **Spotify**, **Apple Music** and **Douyin**. It now supports **HLS (M3U8)** streaming video downloading and merging!
+The Media Downloader Chrome Extension is designed to automatically detect and download media files from various websites, including popular platforms like **QQ Music**, **Ximalaya**, **Netease Cloud Music**, **Bilibili**, **Suno**, **Spotify**, **Apple Music** and **Douyin**. It supports **HLS (M3U8)** streaming video downloading and merging!
 
 ### Screenshots
+
+| M3U8 | Download |
+|----------|------------|
+| ![m3u8](https://i.imgur.com/uoFUZ3P.png) | ![m3u8 download](https://i.imgur.com/ghvnrbt.png) |
+
 
 | Platform | Screenshot |
 |----------|------------|
