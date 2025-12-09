@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,20 +11,20 @@
       min-width: 400px;
       width: auto;
     }
-    
+
     .media-item {
       transition: background-color 0.2s ease;
     }
-    
+
     .media-item:hover {
       background-color: #f3f4f6;
     }
-    
+
     .url-text {
       font-size: 0.75rem;
       line-height: 1.2;
     }
-    
+
     /* Style for the copy button */
     .copy-btn {
       background-color: #e5e7eb;
@@ -36,16 +37,16 @@
       transition: background-color 0.2s;
       margin-left: 0.5rem;
     }
-    
+
     .copy-btn:hover {
       background-color: #d1d5db;
     }
-    
+
     /* Tooltip for the copy button */
     .tooltip {
       position: relative;
     }
-    
+
     .tooltip::after {
       content: "Copy to clipboard";
       position: absolute;
@@ -63,15 +64,15 @@
       pointer-events: none;
       z-index: 10;
     }
-    
+
     .tooltip:hover::after {
       opacity: 1;
     }
-    
+
     .tooltip.copied::after {
       content: "Copied!";
     }
-    
+
     /* Container for the key and copy button */
     .key-container {
       display: flex;
@@ -80,10 +81,12 @@
       padding: 0.55rem;
       border-radius: 0.25rem;
       font-family: monospace;
-      font-size: 0.9rem; /* Increase font size to make it more readable */
+      font-size: 0.9rem;
+      /* Increase font size to make it more readable */
     }
   </style>
 </head>
+
 <body class="min-h-[400px] m-0 p-4 bg-gray-50 font-sans">
   <div id="licenseSection" class="hidden">
     <h1 class="text-xl font-bold mb-4">Media Downloader Activation</h1>
@@ -92,7 +95,8 @@
       <div class="key-container">
         <span id="uniqueKey" class="flex-grow"></span>
         <div id="copyKeyBtn" class="copy-btn tooltip">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
           </svg>
@@ -101,26 +105,31 @@
     </div>
     <p class="mb-2">Please provide the pass to activate:</p>
     <label for="licenseInput" class="sr-only">License key</label>
-    <input type="text" id="licenseInput" class="w-full p-2 border border-gray-300 rounded mb-2" placeholder="Enter your license key">
+    <input type="text" id="licenseInput" class="w-full p-2 border border-gray-300 rounded mb-2"
+      placeholder="Enter your license key">
     <button id="activateBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
       Activate
     </button>
     <div id="licenseStatus" class="mt-4 text-sm"></div>
   </div>
-  
+
   <div id="mainContent" class="hidden">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-xl font-bold">Media Downloader</h1>
       <div class="flex space-x-2">
-        <button id="refreshBtn" class="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center" title="Refresh Media">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+        <button id="refreshBtn" class="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center"
+          title="Refresh Media">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
             <polyline points="23 4 23 10 17 10"></polyline>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
           </svg>
           <span>Refresh</span>
         </button>
-        <button id="downloadAllBtn" class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 flex items-center" title="Download All">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+        <button id="downloadAllBtn"
+          class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 flex items-center" title="Download All">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -129,16 +138,18 @@
         </button>
       </div>
     </div>
-    
+
     <div id="status" class="text-sm text-gray-400 mt-2"></div>
-    
+
     <div id="mediaList" class="mt-4 space-y-2">
       <!-- Media items will be populated here -->
     </div>
   </div>
-  
+
+  <script src="logger.js"></script>
   <script src="common.js"></script>
   <script src="license.js"></script>
   <script src="popup.js"></script>
 </body>
+
 </html>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Media Downloader",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "Detects and downloads video and audio media from web pages",
   "permissions": [
     "webRequest",
@@ -24,6 +24,7 @@
         "<all_urls>"
       ],
       "js": [
+        "logger.js",
         "content.js"
       ],
       "run_at": "document_idle",

@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.getElementById('mainContent');
     const doneSection = document.getElementById('doneSection');
 
+    const logger = new ExtensionLogger('HLS Download');
+
     // Poll for status directly from checking storage
     // The background/content script will update this.
     function checkStatus() {
@@ -97,26 +99,54 @@ document.addEventListener('DOMContentLoaded', () => {
     function showDone() {
         mainContent.classList.add('hidden');
         doneSection.classList.remove('hidden');
-        clearInterval(pollInterval); // Stop polling when done
+        // Stop polling when done
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
     }
 
     // Cancel Click
     cancelBtn.addEventListener('click', () => {
-        clearInterval(pollInterval); // Stop polling immediately
+        // Stop polling immediately
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
 
         // Tell content script to cancel
         chrome.storage.local.get(['hlsDownloadState'], (result) => {
             const state = result.hlsDownloadState;
             if (state && state.tabId) {
-                chrome.tabs.sendMessage(state.tabId, { action: 'cancelHLSDownload' }, () => {
-                    // Clear state and redirect
-                    chrome.storage.local.remove(['hlsDownloadState'], () => {
-                        window.location.href = 'popup.html';
+                // ✅ Check if tab still exists first
+                chrome.tabs.get(state.tabId, (tab) => {
+                    if (chrome.runtime.lastError) {
+                        // Tab doesn't exist anymore - just clean up and go back
+                        logger.warn('Tab no longer exists, cleaning up');
+                        chrome.storage.local.remove(['hlsDownloadState'], () => {
+                            window.location.href = 'popup.html';
+                        });
+                        return;
+                    }
+
+                    // Tab exists, send cancel message
+                    chrome.tabs.sendMessage(state.tabId, {
+                        action: 'cancelHLSDownload'
+                    }, () => {
+                        // ✅ Ignore connection errors - tab might have reloaded
+                        if (chrome.runtime.lastError) {
+                            logger.warn('Could not send cancel message:', chrome.runtime.lastError.message);
+                            // Still clean up and redirect
+                        }
+
+                        chrome.storage.local.remove(['hlsDownloadState'], () => {
+                            window.location.href = 'popup.html';
+                        });
                     });
                 });
             } else {
-                // Fallback if no tabId found (e.g. old state), try broadcast but likely won't work for content script
-                console.warn('No tabId found in state, falling back to runtime broadcast');
+                // No tabId - just clean up and go back
+                logger.warn('No tabId found in state, falling back to runtime broadcast');
                 chrome.runtime.sendMessage({ action: 'cancelHLSDownload' }, () => {
                     chrome.storage.local.remove(['hlsDownloadState'], () => {
                         window.location.href = 'popup.html';
@@ -127,7 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     backBtn.addEventListener('click', () => {
-        clearInterval(pollInterval);
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
         // Clean up state
         chrome.storage.local.remove(['hlsDownloadState'], () => {
             window.location.href = 'popup.html';
@@ -136,5 +169,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial check and interval
     checkStatus();
-    const pollInterval = setInterval(checkStatus, 1000);
+    pollInterval = setInterval(checkStatus, 1000);
 });

@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const DEFAULT_STATUS_TEXT = 'Refresh to scan for media or use Fetch to download all';
 
+  const logger = new ExtensionLogger('Popup');
+
   // Original code starts here
   const mediaList = document.getElementById('mediaList');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -108,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (error) {
       licenseStatus.textContent = 'Verification failed. Please try again.';
       licenseStatus.className = 'text-sm text-red-600 mt-4';
-      console.error('License activation error:', error);
+      logger.warn('License activation error:', error);
     }
   });
 
@@ -364,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function () {
           statusDiv.className = 'text-sm text-gray-400 mt-2';
         }, 3000);
       } catch (err) {
-        console.error('Failed to copy URL: ', err);
+        logger.warn('Failed to copy URL: ', err);
       }
 
       // Toggle display
@@ -434,7 +436,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (chrome.runtime.lastError || !response || !response.success) {
               mergeBtn.textContent = 'Failed (Reload Page)';
               mergeBtn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
-              console.log(response?.error || chrome.runtime.lastError);
+              logger.warn(response?.error || chrome.runtime.lastError);
+
+              // Alert user to refresh page
+              alert('Extension updated, please refresh the page and try again');
 
               // Restore button after delay
               setTimeout(() => {
@@ -488,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function () {
         filename: `video_${Date.now()}.mp4`
       }, (response) => {
         if (chrome.runtime.lastError) {
-          console.error('Content script communication error:', chrome.runtime.lastError);
+          logger.warn('Content script communication error:', chrome.runtime.lastError);
           // Fallback to direct download
           fallbackDirectDownload(url, button);
           return;
@@ -507,12 +512,12 @@ document.addEventListener('DOMContentLoaded', function () {
           }, 2000);
         } else {
           // Content script download failed, use direct download
-          console.error('Content script download failed:', response?.error);
+          logger.warn('Content script download failed:', response?.error);
           fallbackDirectDownload(url, button);
         }
       });
     } catch (error) {
-      console.error('Download error:', error);
+      logger.warn('Download error:', error);
       fallbackDirectDownload(url, button);
     }
   }
@@ -521,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function () {
     button.textContent = 'Downloading...';
     chrome.downloads.download({ url: url, saveAs: false }, (downloadId) => {
       if (chrome.runtime.lastError) {
-        console.error('Direct download also failed:', chrome.runtime.lastError);
+        logger.warn('Direct download also failed:', chrome.runtime.lastError);
         statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
         statusDiv.className = 'text-sm text-red-600 mt-2';
         button.disabled = false;
@@ -574,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function () {
           saveAs: false
         }, (downloadId) => {
           if (chrome.runtime.lastError) {
-            console.error('Download failed:', chrome.runtime.lastError);
+            logger.warn('Download failed:', chrome.runtime.lastError);
             statusDiv.textContent = 'Download failed: ' + chrome.runtime.lastError.message;
             statusDiv.className = 'text-sm text-red-600 mt-2';
             button.disabled = false;

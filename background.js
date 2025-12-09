@@ -1,5 +1,6 @@
 // Background script to monitor network requests for media files
 importScripts('license.js');
+importScripts('logger.js');
 
 // Store media URLs with metadata
 let mediaStore = new Map();
@@ -8,6 +9,7 @@ let isDownloadingActive = false;
 
 // Track the current active tab ID
 let activeTabId = null;
+const logger = new ExtensionLogger('Background');
 
 // Initialize active tab ID on startup
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -39,7 +41,7 @@ chrome.webRequest.onCompleted.addListener(
       return;
     }
 
-    // console.log('Web req÷uest details:', details.url, details.responseHeaders);
+    // logger.info('Web req÷uest details:', details.url, details.responseHeaders);
 
     // If a known HLS download is active, ignore TS/segment files to prevent self-detection flood
     // if (isDownloadingActive) {
@@ -62,8 +64,8 @@ chrome.webRequest.onCompleted.addListener(
       header.name.toLowerCase() === 'content-disposition'
     )?.value;
 
-    // console.log('Content-Type:', contentType);
-    // console.log('Content-Disposition:', contentDisposition);
+    // logger.info('Content-Type:', contentType);
+    // logger.info('Content-Disposition:', contentDisposition);
 
     let isMedia = false;
     let mediaType = contentType;
@@ -80,7 +82,7 @@ chrome.webRequest.onCompleted.addListener(
         if (mediaExtensions.includes(extension)) {
           isMedia = true;
           mediaType = `unknown/${extension}`;
-          // console.log('Detected media via content-disposition filename extension:', filename, extension);
+          // logger.info('Detected media via content-disposition filename extension:', filename, extension);
         }
       }
     }
@@ -102,7 +104,7 @@ chrome.webRequest.onCompleted.addListener(
         tabId: details.tabId
       };
 
-      // console.log('Detected media:', mediaInfo);
+      // logger.info('Detected media:', mediaInfo);
 
       // Use URL as key to avoid duplicates
       if (!mediaStore.has(details.url)) {
@@ -111,7 +113,7 @@ chrome.webRequest.onCompleted.addListener(
         // Store in chrome.storage for persistence
         chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
       } else {
-        // console.log('Duplicate URL detected, skipping overwrite:', details.url);
+        // logger.info('Duplicate URL detected, skipping overwrite:', details.url);
       }
     }
   },
@@ -125,9 +127,9 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   //   const state = changes.hlsDownloadState.newValue;
   //   isDownloadingActive = state && state.isDownloading;
   //   if (isDownloadingActive) {
-  //     console.log('Download mode active - ignoring TS segment detection');
+  //     logger.info('Download mode active - ignoring TS segment detection');
   //   } else {
-  //     console.log('Download mode inactive - resuming normal detection');
+  //     logger.info('Download mode inactive - resuming normal detection');
   //   }
   // }
 });
@@ -161,7 +163,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Add to store if new
     if (!mediaStore.has(mediaInfo.url)) {
-      console.log('DOM detected media:', mediaInfo);
+      logger.info('DOM detected media:', mediaInfo);
       mediaStore.set(mediaInfo.url, mediaInfo);
       chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
     }
@@ -203,7 +205,7 @@ async function handleBilibiliVideo(url, tabId) {
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      console.error('Bilibili API request failed:', response.status);
+      logger.warn('Bilibili API request failed:', response.status);
       return;
     }
 
@@ -211,7 +213,7 @@ async function handleBilibiliVideo(url, tabId) {
 
     // Validate that we got a valid URL
     if (!mp4Url || !mp4Url.startsWith('http')) {
-      console.error('Invalid MP4 URL received from API:', mp4Url);
+      logger.warn('Invalid MP4 URL received from API:', mp4Url);
       return;
     }
 
@@ -232,10 +234,10 @@ async function handleBilibiliVideo(url, tabId) {
       // Store in chrome.storage for persistence
       chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
 
-      console.log('Added bilibili video to media store:', mp4Url);
+      logger.info('Added bilibili video to media store:', mp4Url);
     }
   } catch (error) {
-    console.error('Error fetching bilibili video URL:', error);
+    logger.warn('Error fetching bilibili video URL:', error);
   }
 }
 
