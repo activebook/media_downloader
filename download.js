@@ -101,16 +101,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Cancel Click
-    cancelBtn.addEventListener('click', () => {        
+    cancelBtn.addEventListener('click', () => {
         clearInterval(pollInterval); // Stop polling immediately
 
         // Tell content script to cancel
-        chrome.runtime.sendMessage({ action: 'cancelHLSDownload' }, () => {
-            // Clear state and redirect
-            chrome.storage.local.remove(['hlsDownloadState'], () => {
-                window.location.href = 'popup.html';
-            });
-        });        
+        chrome.storage.local.get(['hlsDownloadState'], (result) => {
+            const state = result.hlsDownloadState;
+            if (state && state.tabId) {
+                chrome.tabs.sendMessage(state.tabId, { action: 'cancelHLSDownload' }, () => {
+                    // Clear state and redirect
+                    chrome.storage.local.remove(['hlsDownloadState'], () => {
+                        window.location.href = 'popup.html';
+                    });
+                });
+            } else {
+                // Fallback if no tabId found (e.g. old state), try broadcast but likely won't work for content script
+                console.warn('No tabId found in state, falling back to runtime broadcast');
+                chrome.runtime.sendMessage({ action: 'cancelHLSDownload' }, () => {
+                    chrome.storage.local.remove(['hlsDownloadState'], () => {
+                        window.location.href = 'popup.html';
+                    });
+                });
+            }
+        });
     });
 
     backBtn.addEventListener('click', () => {

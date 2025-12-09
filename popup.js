@@ -428,7 +428,8 @@ document.addEventListener('DOMContentLoaded', function () {
           chrome.tabs.sendMessage(activeTabId, {
             action: 'downloadHLS',
             url: media.url,
-            filename: 'video_m3u8_' + Date.now() + '.ts'
+            filename: 'video_m3u8_' + Date.now() + '.ts',
+            tabId: activeTabId // explicit pass for state tracking
           }, { frameId: 0 }, (response) => {
             if (chrome.runtime.lastError || !response || !response.success) {
               mergeBtn.textContent = 'Failed (See Console)';

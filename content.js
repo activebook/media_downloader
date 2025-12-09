@@ -100,12 +100,12 @@ function scanForMedia() {
 let hlsAbortController = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    // Ensure only the main frame processes the download to avoid duplicates (since content script runs in all frames)
-    if (window !== window.top) {
-        return;
-    }
-
     if (request.action === 'downloadHLS') {
+        // Ensure only the main frame processes the download to avoid duplicates (since content script runs in all frames)
+        if (window !== window.top) {
+            return;
+        }
+
         // Cancel any existing download first
         if (hlsAbortController) {
             hlsAbortController.abort();
@@ -119,7 +119,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             url: request.url,
             filename: request.filename,
             downloadedSegments: 0,
-            totalSegments: 0
+            totalSegments: 0,
+            // this is the critical part: we need to store the tabId to allow popup/download page to know where to send cancel
+            // without this, the popup/download page will not be able to cancel the download
+            // they will just broadcast the action, and no one would receive it
+            tabId: request.tabId
         };
 
         chrome.storage.local.set({ hlsDownloadState: initialState }, () => {
@@ -153,10 +157,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         return true; // Keep channel open for the storage set callback
     } else if (request.action === 'cancelHLSDownload') {
+        console.log('Cancel HLS download requested');
         if (hlsAbortController) {
+            console.log('Aborting HLS controller');
             hlsAbortController.abort();
             hlsAbortController = null;
+        } else {
+            console.log('No HLS controller to abort');
         }
+
+        // Clear the download state immediately to stop updates
+        chrome.storage.local.remove(['hlsDownloadState'], () => {
+            console.log('Cleared hlsDownloadState from storage');
+        });
 
         // Just report success, the loop in downloadHLSInPage will catch the flag
         sendResponse({ success: true });
@@ -177,7 +190,9 @@ async function downloadHLSInPage(url, filename, signal) {
                 console.log('hlsDownloadState not found, aborting state update');
                 return;
             }
-            chrome.storage.local.set({ hlsDownloadState: state });
+            // bugfix: updateState was overwriting the state and erasing the tabId.
+            // updateState({ ...state, tabId: result.hlsDownloadState.tabId });
+            chrome.storage.local.set({ hlsDownloadState: { ...result.hlsDownloadState, ...state } });
         });
     };
 
@@ -248,6 +263,7 @@ async function downloadHLSInPage(url, filename, signal) {
 
         for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
             // ✅ CHECK ABORT SIGNAL AT START OF EACH BATCH
+            console.log('Starting batch, signal.aborted:', signal.aborted);
             if (signal.aborted) {
                 console.log('Download cancelled during segment download');
                 const err = new Error('Download cancelled by user');
