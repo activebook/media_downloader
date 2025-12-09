@@ -16,15 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Poll for status directly from checking storage
     // The background/content script will update this.
     function checkStatus() {
+
         chrome.storage.local.get(['hlsDownloadState'], (result) => {
             const state = result.hlsDownloadState;
 
             // If not downloading and not done recently, go back to popup
             // Allow 'complete' status to stay to show Done screen
             if (!state || (!state.isDownloading && state.status !== 'complete')) {
-                // If we are showing done section, we might want to stay? 
+                // If we are showing done section, we might want to stay?
                 // Actually if state is missing, we must go back.
-                // If state is there but not downloading and not complete (e.g. error that cleared downloading flag?), 
+                // If state is there but not downloading and not complete (e.g. error that cleared downloading flag?),
                 // we might want to show error?
                 // Let's rely on status.
 
@@ -100,16 +101,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Cancel Click
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener('click', () => {        
         clearInterval(pollInterval); // Stop polling immediately
 
-        // Tell background/content to cancel
-        chrome.runtime.sendMessage({ action: 'cancelHLSDownload' });
-
-        // Clear state locally and redirect
-        chrome.storage.local.remove(['hlsDownloadState'], () => {
-            window.location.href = 'popup.html';
-        });
+        // Tell content script to cancel
+        chrome.runtime.sendMessage({ action: 'cancelHLSDownload' }, () => {
+            // Clear state and redirect
+            chrome.storage.local.remove(['hlsDownloadState'], () => {
+                window.location.href = 'popup.html';
+            });
+        });        
     });
 
     backBtn.addEventListener('click', () => {

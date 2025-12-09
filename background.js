@@ -121,15 +121,15 @@ chrome.webRequest.onCompleted.addListener(
 
 // Listen for storage changes to track download state
 chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (changes.hlsDownloadState) {
-    const state = changes.hlsDownloadState.newValue;
-    isDownloadingActive = state && state.isDownloading;
-    if (isDownloadingActive) {
-      console.log('Download mode active - ignoring TS segment detection');
-    } else {
-      console.log('Download mode inactive - resuming normal detection');
-    }
-  }
+  // if (changes.hlsDownloadState) {
+  //   const state = changes.hlsDownloadState.newValue;
+  //   isDownloadingActive = state && state.isDownloading;
+  //   if (isDownloadingActive) {
+  //     console.log('Download mode active - ignoring TS segment detection');
+  //   } else {
+  //     console.log('Download mode inactive - resuming normal detection');
+  //   }
+  // }
 });
 
 // Listen for messages from popup
