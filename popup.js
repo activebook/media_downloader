@@ -135,15 +135,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
       // Send message using common constant
-      chrome.runtime.sendMessage({ action: REQUEST_ACTION_MEDIA_REFRESH }, (response) => {
-        if (response && response.status === 'refreshed') {
-          showStatus('Refreshed successfully', 'green');
-          loadMedia();
-        } else {
-          showStatus('Refresh failed', 'red');
-        }
-        refreshBtn.disabled = false;
-      });
+      const response = await sendBroadcastMessage({ action: REQUEST_ACTION_MEDIA_REFRESH });
+      if (response && response.status === 'refreshed') {
+        showStatus('Refreshed successfully', 'green');
+        loadMedia();
+      } else {
+        showStatus('Refresh failed', 'red');
+      }
+      refreshBtn.disabled = false;
     } catch (e) {
       showStatus('Refresh failed: ' + e.message, 'red');
       refreshBtn.disabled = false;
