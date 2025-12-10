@@ -259,7 +259,59 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         sendResponse({ success: true });
         return true;
     }
+
+    if (request.action === REQUEST_ACTION_DOWNLOAD_BLOB) {
+        try {
+            await downloadBlobUrl(request.url, request.filename);
+            sendResponse({ success: true });
+        } catch (error) {
+            sendResponse({ success: false, error: error.message });
+        }
+        return true; // Keep message channel open for async response
+    }
 });
+
+/**
+ * Download blob URL content by fetching and creating a new blob URL for download
+ * @param {string} blobUrl - The blob URL to download
+ * @param {string} filename - The filename for the download
+ */
+async function downloadBlobUrl(blobUrl, filename) {
+    try {
+        logger.info('Starting blob download for:', blobUrl);
+
+        // Fetch the blob data
+        const response = await fetch(blobUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch blob: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+
+        // Create a new blob URL for download
+        const newBlobUrl = URL.createObjectURL(blob);
+
+        // Create download link
+        const a = document.createElement('a');
+        a.href = newBlobUrl;
+        a.download = filename || 'blob_video.mp4';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(newBlobUrl);
+        }, 10000);
+
+        logger.info('Blob download complete');
+        return true;
+    } catch (error) {
+        logger.warn('Blob download failed:', error);
+        throw error;
+    }
+}
 
 async function downloadHLSInPage(downloadState, signal) {
     // Extract url and filename for convenience

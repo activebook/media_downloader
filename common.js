@@ -3,6 +3,7 @@
 const REQUEST_ACTION_DOWNLOAD_HLS = 'downloadHLS';
 const REQUEST_ACTION_CANCEL_HLS_DOWNLOAD = 'cancelHLSDownload';
 const REQUEST_ACTION_DOWNLOAD_VIDEO_FROM_PAGE = 'downloadVideoFromPage';
+const REQUEST_ACTION_DOWNLOAD_BLOB = 'downloadBlob';
 const REQUEST_ACTION_MEDIA_DETECTED = 'mediaDetected';
 const REQUEST_ACTION_MEDIA_REFRESH = 'mediaRefresh';
 

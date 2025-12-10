@@ -349,7 +349,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function createMediaItem(media) {
     const item = document.createElement('div');
 
-    const isBilibiliVideo = media.source === 'bilibili original';
+    // Robust type detection
+    const isBilibiliVideo = (media.source && media.source.toLowerCase().includes('bilibili')) || false;
+    const isBlob = (media.source === 'blob') || (media.url && media.url.startsWith('blob:'));
     const isHLS = media.url.includes('.m3u8') || (media.type && (media.type.includes('mpegurl') || media.type.includes('hls')));
 
     // Item Styling
@@ -357,6 +359,8 @@ document.addEventListener('DOMContentLoaded', function () {
       item.className = 'flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-green-50 border-2 border-green-300 rounded-md shadow-md';
     } else if (isHLS) {
       item.className = 'flex flex-col p-3 bg-purple-50 border border-purple-200 rounded-md shadow-sm';
+    } else if (isBlob) {
+      item.className = 'flex flex-col p-3 bg-blue-50 border border-blue-200 rounded-md shadow-sm';
     } else {
       item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
     }
@@ -419,19 +423,61 @@ document.addEventListener('DOMContentLoaded', function () {
     info.appendChild(url);
     info.appendChild(size);
 
-    // Download Button
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap ml-2 media-download-btn';
-    downloadBtn.textContent = isHLS ? 'Download .m3u8' : 'Download';
-    // Store media data in attributes for event delegation
-    downloadBtn.dataset.mediaUrl = media.url;
-    downloadBtn.dataset.mediaType = media.type;
-
     infoRow.appendChild(info);
-    infoRow.appendChild(downloadBtn);
+
+    // Download Button - Right Side
+    // CRITICAL: Only show this button if NOT Blob and NOT Bilibili
+    if (!isBlob && !isBilibiliVideo) {
+      const downloadBtn = document.createElement('button');
+      downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap ml-2 media-download-btn';
+      downloadBtn.textContent = isHLS ? 'Download .m3u8' : 'Download';
+      // Store media data in attributes for event delegation
+      downloadBtn.dataset.mediaUrl = media.url;
+      downloadBtn.dataset.mediaType = media.type;
+      infoRow.appendChild(downloadBtn);
+    }
+
     item.appendChild(infoRow);
 
-    // HLS Merge Row
+    // Bilibili Download Row (Bottom)
+    if (isBilibiliVideo) {
+      const biliRow = document.createElement('div');
+      // Added margin-top (mt-2) and padding-top (pt-2) to separate from info
+      biliRow.className = 'mt-2 pt-2 border-t border-green-200 w-full flex flex-col gap-2';
+
+      const biliBtn = document.createElement('button');
+      biliBtn.className = 'w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-download-btn';
+      biliBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download
+        `;
+      biliBtn.dataset.mediaUrl = media.url;
+      biliBtn.dataset.mediaType = media.type;
+
+      biliRow.appendChild(biliBtn);
+      item.appendChild(biliRow);
+    }
+
+    // Blob Download Row (Bottom)
+    if (isBlob) {
+      const blobRow = document.createElement('div');
+      blobRow.className = 'mt-2 pt-2 border-t border-blue-200 w-full flex flex-col gap-2';
+
+      const blobBtn = document.createElement('button');
+      blobBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-blob-download-btn';
+      blobBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download Blob
+        `;
+      // Store media data in attributes for event delegation
+      blobBtn.dataset.mediaUrl = media.url;
+      blobBtn.dataset.source = media.source || 'blob';
+
+      blobRow.appendChild(blobBtn);
+      item.appendChild(blobRow);
+    }
+
+    // HLS Merge Row (Bottom)
     if (isHLS) {
       const hlsRow = document.createElement('div');
       hlsRow.className = 'mt-2 pt-2 border-t border-purple-200 w-full flex flex-col gap-2';
@@ -538,6 +584,57 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  async function handleBlobDownload(url, source, blobBtn) {
+    blobBtn.disabled = true;
+    blobBtn.innerHTML = 'Starting Download...';
+    blobBtn.className = 'w-full bg-gray-500 text-white px-3 py-2 rounded-md text-xs font-medium cursor-wait flex items-center justify-center';
+
+    try {
+      const activeTabId = await getActiveTabId();
+      if (!activeTabId) {
+        throw new Error('No Active Tab');
+      }
+
+      const response = await sendMessage(activeTabId, {
+        action: REQUEST_ACTION_DOWNLOAD_BLOB,
+        url: url,
+        filename: 'blob_video_' + Date.now() + '.mp4'
+      });
+      if (chrome.runtime.lastError) {
+        handleBlobError(blobBtn, chrome.runtime.lastError?.message);
+      } else {
+        showStatus('Blob download started', 'green');
+        blobBtn.innerHTML = 'Downloaded';
+        setTimeout(() => {
+          blobBtn.disabled = false;
+          blobBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download Blob
+                `;
+          blobBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+        }, 2000);
+      }
+    } catch (e) {
+      handleBlobError(blobBtn, e.message);
+    }
+  }
+
+  function handleBlobError(btn, errorMsg) {
+    btn.textContent = 'Failed (Reload Page)';
+    btn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
+    logger.warn(errorMsg);
+    alert('Blob download failed: ' + errorMsg);
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download Blob
+          `;
+      btn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+    }, 3000);
+  }
+
   function handleMergeError(btn, errorMsg) {
     btn.textContent = 'Failed (Reload Page)';
     btn.className = 'w-full bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium flex items-center justify-center';
@@ -567,8 +664,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function handleDelegatedClick(event) {
     const target = event.target;
 
-    // Handle regular download buttons
-    if (target.classList.contains('media-download-btn')) {
+    // Handle regular download buttons (only for non-special media)
+    if (target.classList.contains('media-download-btn') && !target.classList.contains('media-blob-download-btn')) {
       event.preventDefault();
       event.stopPropagation();
 
@@ -599,6 +696,21 @@ document.addEventListener('DOMContentLoaded', function () {
           timestamp: timestamp
         };
         checkLicenseAndExecute(() => handleMerge(media, btn));
+      }
+      return;
+    }
+
+    // Handle blob download buttons
+    if (target.classList.contains('media-blob-download-btn') || target.closest('.media-blob-download-btn')) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const btn = target.classList.contains('media-blob-download-btn') ? target : target.closest('.media-blob-download-btn');
+      const url = btn.dataset.mediaUrl;
+      const source = btn.dataset.source || 'blob';
+
+      if (url) {
+        checkLicenseAndExecute(() => handleBlobDownload(url, source, btn));
       }
       return;
     }
