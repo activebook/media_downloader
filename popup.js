@@ -3,16 +3,16 @@
 document.addEventListener('DOMContentLoaded', function () {
   // Define button HTML structures as constants
   const DOWNLOAD_BTN_HTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
       <polyline points="7 10 12 15 17 10"></polyline>
       <line x1="12" y1="15" x2="12" y2="3"></line>
     </svg>
-    <span>Fetch</span>
+
   `;
 
   const DOWNLOADING_SPINNER_HTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin">
       <line x1="12" y1="2" x2="12" y2="6"></line>
       <line x1="12" y1="18" x2="12" y2="22"></line>
       <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
       <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
     </svg>
-    <span>Fetch</span>
+
   `;
 
   const DEFAULT_STATUS_TEXT = 'Refresh to scan for media or use Fetch to download all';
@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const activateBtn = document.getElementById('activateBtn');
   const licenseStatus = document.getElementById('licenseStatus');
   const copyKeyBtn = document.getElementById('copyKeyBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const versionSpan = document.getElementById('version');
+
 
   // Initialization
   initialize();
@@ -59,6 +62,14 @@ document.addEventListener('DOMContentLoaded', function () {
     downloadAllBtn.addEventListener('click', () => {
       checkLicenseAndExecute(handleDownloadAll);
     });
+    settingsBtn.addEventListener('click', () => {
+      chrome.runtime.openOptionsPage();
+    });
+
+    // Display version
+    const manifest = chrome.runtime.getManifest();
+    versionSpan.textContent = `v${manifest.version}`;
+
 
     // Listen for storage changes
     chrome.storage.onChanged.addListener(handleStorageChange);
@@ -323,6 +334,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const activeTabId = await getActiveTabId();
     let currentTabMedia = mediaStore.getMediaForTab(activeTabId);
+
+    // Get settings to filter media
+    const settings = await chrome.storage.local.get(['showBlob', 'showTs']);
+    const showBlob = settings.showBlob || false;
+    const showTs = settings.showTs || false;
+
+    // Filter based on settings
+    currentTabMedia = currentTabMedia.filter(media => {
+      // Logic to detect type
+      const isBlob = (media.source === 'blob') || (media.url && media.url.startsWith('blob:'));
+      // TS segment usually has type video/mp2t or ends with .ts
+      const isTs = (media.type && media.type.includes('mp2t')) || (media.url && media.url.includes('.ts'));
+
+      if (!showBlob && isBlob) return false;
+      if (!showTs && isTs) return false;
+      return true;
+    });
 
     // If there are bilibili original videos, remove application/octet-stream entries
     const hasBilibiliOriginal = currentTabMedia.some(media => media.source === 'bilibili original');

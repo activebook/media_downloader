@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Downloader Options</title>
+    <link href="tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .toggle-checkbox:checked {
+            right: 0 !important;
+            border-color: #68D391 !important;
+        }
+
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #68D391 !important;
+        }
+
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #cbd5e0;
+            cursor: pointer;
+            appearance: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 9999px;
+            background-color: white;
+            border-width: 1px;
+            position: absolute;
+            top: 0;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .toggle-label {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            transform: translateX(100%);
+            border-color: #48bb78;
+        }
+
+        .wrapper {
+            position: relative;
+            width: 3rem;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div class="header mb-8 border-b pb-4">
+        <h1 class="text-2xl font-bold text-gray-900">Media Downloader Settings</h1>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4">Filters</h2>
+
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="font-medium">Show Blobs</h3>
+                <p class="text-sm text-gray-500">Display detected blob URLs in the media list.</p>
+            </div>
+            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input type="checkbox" name="showBlob" id="showBlob"
+                    class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer left-0 top-0 transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-green-400" />
+                <label for="showBlob"
+                    class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-200 ease-in-out peer-checked:bg-green-400"></label>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="font-medium">Show TS Segments</h3>
+                <p class="text-sm text-gray-500">Display individual .ts video segments in the media list.</p>
+            </div>
+            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input type="checkbox" name="showTs" id="showTs"
+                    class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer left-0 top-0 transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-green-400" />
+                <label for="showTs"
+                    class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-200 ease-in-out peer-checked:bg-green-400"></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold mb-4">License Information</h2>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Register Key</label>
+            <div class="bg-gray-100 p-3 rounded text-sm font-mono select-all break-all" id="registerKey">
+                Loading...
+            </div>
+            <p class="text-xs text-gray-500 mt-1">This is your unique installation identifier.</p>
+        </div>
+
+        <div>
+            <label class="block text-gray-700 text-sm font-bold mb-2">License Key</label>
+            <div class="bg-gray-100 p-3 rounded text-sm font-mono select-all break-all" id="licenseKey">
+                Not Activated
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Your activation key.</p>
+        </div>
+    </div>
+
+    <div id="status"
+        class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow opacity-0 transition-opacity duration-300">
+        Settings Saved
+    </div>
+
+    <script src="options.js"></script>
+</body>
+
+</html>

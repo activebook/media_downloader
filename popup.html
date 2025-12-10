@@ -114,27 +114,41 @@
   </div>
 
   <div id="mainContent" class="hidden">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-xl font-bold">Media Downloader</h1>
-      <div class="flex space-x-2">
-        <button id="refreshBtn" class="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center"
+    <div class="flex justify-between items-center mb-4 bg-gradient-to-r from-blue-200 via-sky-100 to-indigo-200 text-gray-800 p-2 -mx-4 -mt-4 mb-4 shadow-sm shadow-b-md" style="background-image: radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.2) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(99, 102, 241, 0.2) 0%, transparent 50%); background-blend-mode: multiply; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.1);">
+      <div class="flex items-baseline">
+        <h1 class="text-base font-bold ml-2">Media Downloader</h1>
+        <small id="version" class="text-[10px] text-gray-400 ml-2"></small>
+      </div>
+      <div class="flex space-x-2 mr-1">
+        <button id="refreshBtn"
+          class="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
           title="Refresh Media">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
           </svg>
-          <span>Refresh</span>
         </button>
         <button id="downloadAllBtn"
-          class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 flex items-center" title="Download All">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+          class="bg-green-600 text-white p-1.5 rounded hover:bg-green-500 focus:outline-none focus:ring-1 focus:ring-green-400"
+          title="Fetch All">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>Fetch</span>
+        </button>
+        <button id="settingsBtn"
+          class="bg-gray-600 text-white p-1.5 rounded hover:bg-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400"
+          title="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg>
         </button>
       </div>
     </div>
