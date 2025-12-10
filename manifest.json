@@ -25,6 +25,8 @@
       ],
       "js": [
         "logger.js",
+        "media_info.js",
+        "download_state.js",
         "content.js"
       ],
       "run_at": "document_idle",
