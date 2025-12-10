@@ -36,9 +36,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.webRequest.onCompleted.addListener(
   (details) => {
     // Only process requests from the active tab
-    if (details.tabId !== activeTabId) {
-      return;
-    }
+    /**
+     * Detects m3u8 in all iframes:
+     * Will catch m3u8 requests from iframes in any tab, not just the active one
+     * 
+     * More comprehensive monitoring:
+     * Will detect media from background tabs and iframes that aren't currently visible
+     * 
+     */
+    // if (details.tabId !== activeTabId) {
+    //   return;
+    // }
 
     // Use MediaDetector to analyze the request
     const detection = MediaDetector.detect(details);
@@ -60,6 +68,7 @@ chrome.webRequest.onCompleted.addListener(
       mediaStore.addMedia(mediaInfo);
     }
   },
+  // The webRequest listener captures ALL network requests from the tab, including those made by iframes. 
   { urls: ['<all_urls>'] },
   ['responseHeaders']
 );
