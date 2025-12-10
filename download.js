@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const doneSection = document.getElementById('doneSection');
 
     const logger = new ExtensionLogger('HLS Download');
+    let pollInterval = null;
 
     // Poll for status directly from checking storage
     // The background/content script will update this.

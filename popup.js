@@ -63,6 +63,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Listen for storage changes
     chrome.storage.onChanged.addListener(handleStorageChange);
 
+    // Set up event delegation for download buttons to prevent multiple downloads
+    setupEventDelegation();
+
     // Initial media load
     loadMedia();
   }
@@ -214,21 +217,22 @@ document.addEventListener('DOMContentLoaded', function () {
     // But the updated logic above handles it via callback/finally
   }
 
-  // Wrapper for content script download with clean promise
-  function triggerContentScriptDownload(tabId, url, filename) {
-    return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, {
+  // Wrapper for content script download using shared helper
+  async function triggerContentScriptDownload(tabId, url, filename) {
+    try {
+      const response = await sendMessage(tabId, {
         action: REQUEST_ACTION_DOWNLOAD_VIDEO_FROM_PAGE,
         url: url,
         filename: filename
-      }, (response) => {
-        if (chrome.runtime.lastError || !response || !response.success) {
-          reject(response?.error || chrome.runtime.lastError?.message || 'Unknown error');
-        } else {
-          resolve();
-        }
       });
-    });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'Unknown error');
+      }
+    } catch (error) {
+      // Re-throw to be caught by caller
+      throw error;
+    }
   }
 
   // Wrapper for direct download
@@ -417,11 +421,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Download Button
     const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap ml-2';
+    downloadBtn.className = 'bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap ml-2 media-download-btn';
     downloadBtn.textContent = isHLS ? 'Download .m3u8' : 'Download';
-    downloadBtn.addEventListener('click', () => {
-      checkLicenseAndExecute(() => handleSingleDownload(media.url, media.type, downloadBtn));
-    });
+    // Store media data in attributes for event delegation
+    downloadBtn.dataset.mediaUrl = media.url;
+    downloadBtn.dataset.mediaType = media.type;
 
     infoRow.appendChild(info);
     infoRow.appendChild(downloadBtn);
@@ -433,15 +437,15 @@ document.addEventListener('DOMContentLoaded', function () {
       hlsRow.className = 'mt-2 pt-2 border-t border-purple-200 w-full flex flex-col gap-2';
 
       const mergeBtn = document.createElement('button');
-      mergeBtn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+      mergeBtn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-hls-download-btn';
       mergeBtn.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Download
         `;
-
-      mergeBtn.addEventListener('click', () => {
-        handleMerge(media, mergeBtn);
-      });
+      // Store media data in attributes for event delegation
+      mergeBtn.dataset.mediaUrl = media.url;
+      mergeBtn.dataset.source = media.source || '';
+      mergeBtn.dataset.timestamp = media.timestamp || Date.now();
 
       hlsRow.appendChild(mergeBtn);
       item.appendChild(hlsRow);
@@ -548,6 +552,56 @@ document.addEventListener('DOMContentLoaded', function () {
           `;
       btn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
     }, 3000);
+  }
+
+  // --- Event Delegation for Download Buttons ---
+
+  function setupEventDelegation() {
+    // Remove existing event listener to prevent duplicates
+    mediaList.removeEventListener('click', handleDelegatedClick);
+
+    // Add single event listener to handle all download button clicks
+    mediaList.addEventListener('click', handleDelegatedClick);
+  }
+
+  function handleDelegatedClick(event) {
+    const target = event.target;
+
+    // Handle regular download buttons
+    if (target.classList.contains('media-download-btn')) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const url = target.dataset.mediaUrl;
+      const mediaType = target.dataset.mediaType;
+
+      if (url && mediaType) {
+        checkLicenseAndExecute(() => handleSingleDownload(url, mediaType, target));
+      }
+      return;
+    }
+
+    // Handle HLS merge buttons
+    if (target.classList.contains('media-hls-download-btn') || target.closest('.media-hls-download-btn')) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const btn = target.classList.contains('media-hls-download-btn') ? target : target.closest('.media-hls-download-btn');
+      const url = btn.dataset.mediaUrl;
+      const source = btn.dataset.source || 'HLS Stream';
+      const timestamp = btn.dataset.timestamp || Date.now();
+
+      if (url) {
+        // Create a media object for handleMerge function
+        const media = {
+          url: url,
+          source: source,
+          timestamp: timestamp
+        };
+        checkLicenseAndExecute(() => handleMerge(media, btn));
+      }
+      return;
+    }
   }
 
 });
