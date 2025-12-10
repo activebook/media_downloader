@@ -643,14 +643,6 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         showStatus('Blob download started', 'green');
         blobBtn.innerHTML = 'Downloaded';
-        setTimeout(() => {
-          blobBtn.disabled = false;
-          blobBtn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Download Blob
-                `;
-          blobBtn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
-        }, 2000);
       }
     } catch (e) {
       handleBlobError(blobBtn, e.message);
@@ -665,10 +657,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setTimeout(() => {
       btn.disabled = false;
-      btn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Download Blob
-          `;
+      btn.innerHTML = 'Try Blob Download';
       btn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
     }, 3000);
   }
@@ -681,10 +670,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setTimeout(() => {
       btn.disabled = false;
-      btn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Download
-          `;
+      btn.innerHTML = 'Download';
       btn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
     }, 3000);
   }
