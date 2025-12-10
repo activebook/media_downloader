@@ -504,8 +504,8 @@ document.addEventListener('DOMContentLoaded', function () {
       blobRow.className = 'mt-2 pt-2 border-t border-blue-200 w-full flex flex-col gap-2';
 
       const blobBtn = document.createElement('button');
-      blobBtn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-blob-download-btn';
-      blobBtn.innerHTML = 'Try Blob Download';
+      blobBtn.className = 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 border-dashed px-2 py-1 rounded-md text-xs transition-colors flex items-center justify-center media-blob-download-btn';
+      blobBtn.innerHTML = 'Download';
       // Store media data in attributes for event delegation
       blobBtn.dataset.mediaUrl = media.url;
       blobBtn.dataset.source = media.source || 'blob';
@@ -657,8 +657,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setTimeout(() => {
       btn.disabled = false;
-      btn.innerHTML = 'Try Blob Download';
-      btn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+      btn.innerHTML = 'Download';
+      btn.className = 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 border-dashed px-2 py-1 rounded-md text-xs transition-colors flex items-center justify-center';
     }, 3000);
   }
 
