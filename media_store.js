@@ -29,6 +29,42 @@ class MediaStore {
       .sort((a, b) => b.timestamp - a.timestamp);
   }
 
+  // Get filtered media for a tab with showBlob and showSegment filter parameters
+  getMediaForTabFilter(tabId, showBlob = false, showSegment = false) {
+    if (!tabId) return [];
+
+    // Helper functions for cleaner filtering logic
+    const isBlobMedia = (media) => {
+      return media.source === 'blob' || (media.url && media.url.startsWith('blob:'));
+    };
+
+    const isSegmentMedia = (media) => {
+      const url = media.url?.toLowerCase() || '';
+
+      // Check MIME types for segments
+      if (media.type) {
+        const mimeType = media.type.toLowerCase();
+        if (mimeType.includes('mp2t') || mimeType.includes('iso')) {
+          return true;
+        }
+      }
+
+      // Check file extensions and patterns
+      return url.includes('.ts') || url.includes('.m4s') ||
+             url.includes('segment') || /\/segment\/\d+/.test(url);
+    };
+
+    return Array.from(this.store.values())
+      .filter(media => media.tabId === tabId)
+      .filter(media => {
+        // Apply filters based on settings
+        if (!showBlob && isBlobMedia(media)) return false;
+        if (!showSegment && isSegmentMedia(media)) return false;
+        return true;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
   // Get all media (for debugging/admin purposes)
   getAllMedia() {
     return Array.from(this.store.values())

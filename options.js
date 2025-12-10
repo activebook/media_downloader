@@ -1,15 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     const showBlobCheckbox = document.getElementById('showBlob');
-    const showTsCheckbox = document.getElementById('showTs');
+    const showSegmentCheckbox = document.getElementById('showSegment');
     const registerKeyDiv = document.getElementById('registerKey');
     const licenseKeyDiv = document.getElementById('licenseKey');
     const statusDiv = document.getElementById('status');
 
     // Load settings
-    chrome.storage.local.get(['showBlob', 'showTs', 'licenseKey', 'storedPass'], (result) => {
+    chrome.storage.local.get(['showBlob', 'showSegment', 'licenseKey', 'storedPass'], (result) => {
         // Settings defaults are false
         showBlobCheckbox.checked = result.showBlob || false;
-        showTsCheckbox.checked = result.showTs || false;
+        showSegmentCheckbox.checked = result.showSegment || false;
 
         // License Info
         registerKeyDiv.textContent = result.licenseKey || 'Not generated yet';
@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSetting('showBlob', e.target.checked);
     });
 
-    showTsCheckbox.addEventListener('change', (e) => {
-        saveSetting('showTs', e.target.checked);
+    showSegmentCheckbox.addEventListener('change', (e) => {
+        saveSetting('showSegment', e.target.checked);
     });
 
     function showStatus(message) {

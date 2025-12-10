@@ -69,12 +69,40 @@ async function sendBroadcast(message) {
   }
 }
 
-/* 
+/*
  * Check if the extension context is valid
  * @returns {boolean} True if the extension context is valid, false otherwise
  */
 function extensionContextValid() {
   return chrome.runtime?.id;
+}
+
+/**
+ * Get the current showBlob setting from local storage
+ * @returns {Promise<boolean>} True if blob URLs should be shown, false otherwise (default: false)
+ */
+async function getShowBlobSetting() {
+  try {
+    const result = await chrome.storage.local.get(['showBlob']);
+    return result.showBlob || false;
+  } catch (error) {
+    console.warn('Failed to get showBlob setting:', error);
+    return false;
+  }
+}
+
+/**
+ * Get the current showSegment setting from local storage
+ * @returns {Promise<boolean>} True if TS segments should be shown, false otherwise (default: false)
+ */
+async function getShowSegmentSetting() {
+  try {
+    const result = await chrome.storage.local.get(['showSegment']);
+    return result.showSegment || false;
+  } catch (error) {
+    console.warn('Failed to get showSegment setting:', error);
+    return false;
+  }
 }
 
 // Usage

@@ -12,7 +12,8 @@ class MediaDetector {
       'video/x-matroska',
       'video/x-flv',
       'video/3gpp',
-      'video/mp2t',
+      'video/mp2t', // .ts
+      'video/iso.segment', // .m4s
       'application/vnd.apple.mpegurl',  // HLS
       'application/x-mpegurl',   // HLS alternative
       'application/dash+xml',  // DASH

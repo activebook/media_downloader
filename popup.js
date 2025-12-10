@@ -167,13 +167,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
       const activeTabId = await getActiveTabId();
-      let currentTabMedia = mediaStore.getMediaForTab(activeTabId);
 
-      // Apply bilibili filtering
-      const hasBilibiliOriginal = currentTabMedia.some(media => media.source === 'bilibili original');
-      if (hasBilibiliOriginal) {
-        currentTabMedia = currentTabMedia.filter(media => media.type !== 'application/octet-stream');
-      }
+      // Get settings to filter media
+      const showBlob = await getShowBlobSetting();
+      const showSegment = await getShowSegmentSetting();
+
+      // Filter based on settings
+      let currentTabMedia = mediaStore.getMediaForTabFilter(activeTabId, showBlob, showSegment);
 
       if (currentTabMedia.length === 0) {
         showStatus('No media to download', 'gray');
@@ -333,30 +333,13 @@ document.addEventListener('DOMContentLoaded', function () {
     mediaList.innerHTML = '';
 
     const activeTabId = await getActiveTabId();
-    let currentTabMedia = mediaStore.getMediaForTab(activeTabId);
 
     // Get settings to filter media
-    const settings = await chrome.storage.local.get(['showBlob', 'showTs']);
-    const showBlob = settings.showBlob || false;
-    const showTs = settings.showTs || false;
+    const showBlob = await getShowBlobSetting();
+    const showSegment = await getShowSegmentSetting();
 
     // Filter based on settings
-    currentTabMedia = currentTabMedia.filter(media => {
-      // Logic to detect type
-      const isBlob = (media.source === 'blob') || (media.url && media.url.startsWith('blob:'));
-      // TS segment usually has type video/mp2t or ends with .ts
-      const isTs = (media.type && media.type.includes('mp2t')) || (media.url && media.url.includes('.ts'));
-
-      if (!showBlob && isBlob) return false;
-      if (!showTs && isTs) return false;
-      return true;
-    });
-
-    // If there are bilibili original videos, remove application/octet-stream entries
-    const hasBilibiliOriginal = currentTabMedia.some(media => media.source === 'bilibili original');
-    if (hasBilibiliOriginal) {
-      currentTabMedia = currentTabMedia.filter(media => media.type !== 'application/octet-stream');
-    }
+    let currentTabMedia = mediaStore.getMediaForTabFilter(activeTabId, showBlob, showSegment);
 
     if (currentTabMedia.length === 0) {
       mediaList.innerHTML = '<div class="text-center text-gray-500 py-8">No media detected yet. Try refreshing or interacting with the page.</div>';
@@ -516,23 +499,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // Blob Download Row (Bottom)    
     if (isBlob) {
       // We can't download it, just hide the button
-      /*
+
       const blobRow = document.createElement('div');
       blobRow.className = 'mt-2 pt-2 border-t border-blue-200 w-full flex flex-col gap-2';
 
       const blobBtn = document.createElement('button');
-      blobBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-blob-download-btn';
-      blobBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Download Blob
-        `;
+      blobBtn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center media-blob-download-btn';
+      blobBtn.innerHTML = 'Try Blob Download';
       // Store media data in attributes for event delegation
       blobBtn.dataset.mediaUrl = media.url;
-      blobBtn.dataset.source = media.source || 'blob';      
+      blobBtn.dataset.source = media.source || 'blob';
 
       blobRow.appendChild(blobBtn);
       item.appendChild(blobRow);
-      */
+
     }
 
     // HLS Merge Row (Bottom)
@@ -669,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     Download Blob
                 `;
-          blobBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+          blobBtn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
         }, 2000);
       }
     } catch (e) {
@@ -689,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 Download Blob
           `;
-      btn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
+      btn.className = 'w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border-2 border-amber-300 border-dashed px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center';
     }, 3000);
   }
 
