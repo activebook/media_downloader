@@ -265,6 +265,24 @@ class MediaDetector {
   }
 
   /**
+   * Check if a media type string represents a video type
+   * @param {string} mediaType - The media type to check (e.g., 'video', 'audio')
+   * @returns {boolean} True if the media type is video, false otherwise
+   */
+  static isVideoType(mediaType) {
+    return mediaType && mediaType.toLowerCase() === 'video';
+  }
+
+  /**
+   * Check if a media type string represents an audio type
+   * @param {string} mediaType - The media type to check (e.g., 'video', 'audio')
+   * @returns {boolean} True if the media type is audio, false otherwise
+   */
+  static isAudioType(mediaType) {
+    return mediaType && mediaType.toLowerCase() === 'audio';
+  }
+
+  /**
    * Extract bilibili video URL (synchronous part)
    * @param {string} url - The current page URL
    * @returns {Object|null} Extraction result with bvCode if valid bilibili video page

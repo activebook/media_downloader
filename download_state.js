@@ -1,5 +1,7 @@
 // download_state.js - Download state management class
 class DownloadState {
+  static STORAGE_KEY = 'hlsDownloadState';
+
   constructor(url, filename, tabId) {
     if (!url || typeof url !== 'string') {
       throw new Error('DownloadState: url is required and must be a string');
@@ -21,44 +23,44 @@ class DownloadState {
   }
 
   // State transition methods
-  start() {
+  async start() {
     this.isDownloading = true;
     this.status = 'downloading';
     this.startTime = Date.now();
-    this.persist();
+    await this.persist();
   }
 
-  updateProgress(downloaded, total) {
+  async updateProgress(downloaded, total) {
     this.downloadedSegments = downloaded;
     this.totalSegments = total;
-    this.persist();
+    await this.persist();
   }
 
-  startMerging() {
+  async startMerging() {
     this.status = 'merging';
-    this.persist();
+    await this.persist();
   }
 
-  complete() {
+  async complete() {
     this.isDownloading = false;
     this.status = 'complete';
     this.endTime = Date.now();
-    this.persist();
+    await this.persist();
   }
 
-  fail(error) {
+  async fail(error) {
     this.isDownloading = false;
     this.status = 'error';
     this.error = error;
     this.endTime = Date.now();
-    this.persist();
+    await this.persist();
   }
 
-  cancel() {
+  async cancel() {
     this.isDownloading = false;
     this.status = 'cancelled';
     this.endTime = Date.now();
-    this.persist();
+    await this.persist();
   }
 
   // Computed properties
@@ -76,20 +78,32 @@ class DownloadState {
     return this.isDownloading && this.status !== 'error' && this.status !== 'cancelled';
   }
 
+  get isDone() {
+    return !this.isDownloading && this.status === 'complete';
+  }
+
+  get isError() {
+    return !this.isDownloading && this.status === 'error';
+  }
+
+  get isCancelled() {
+    return !this.isDownloading && this.status === 'cancelled';
+  }
+
   // Persistence methods
   async persist() {
     try {
-      await chrome.storage.local.set({ hlsDownloadState: this.toJSON() });
+      await chrome.storage.local.set({ [DownloadState.STORAGE_KEY]: this.toJSON() });
     } catch (error) {
-      console.error('Failed to persist download state:', error);
+      throw new Error('DownloadState: Failed to persist state: ', error.message);
     }
   }
 
-  async clear() {
+  static async clear() {
     try {
-      await chrome.storage.local.remove(['hlsDownloadState']);
+      await chrome.storage.local.remove([DownloadState.STORAGE_KEY]);
     } catch (error) {
-      console.error('Failed to clear download state:', error);
+      throw new Error('Failed to clear download state: ' + error.message);
     }
   }
 
@@ -122,12 +136,12 @@ class DownloadState {
   // Static method to load from storage
   static async loadFromStorage() {
     try {
-      const result = await chrome.storage.local.get(['hlsDownloadState']);
-      if (result.hlsDownloadState) {
-        return DownloadState.fromJSON(result.hlsDownloadState);
+      const result = await chrome.storage.local.get([DownloadState.STORAGE_KEY]);
+      if (result[DownloadState.STORAGE_KEY]) {
+        return DownloadState.fromJSON(result[DownloadState.STORAGE_KEY]);
       }
     } catch (error) {
-      console.error('Failed to load download state:', error);
+      throw new Error('Failed to load download state: ' + error.message);
     }
     return null;
   }

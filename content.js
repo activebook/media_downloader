@@ -4,15 +4,14 @@
 const logger = new ExtensionLogger('Content');
 
 // Listen for messages from popup/background
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'downloadVideoFromPage') {
-        downloadVideoInPageContext(request.url, request.filename)
-            .then(() => {
-                sendResponse({ success: true });
-            })
-            .catch((error) => {
-                sendResponse({ success: false, error: error.message });
-            });
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+    if (request.action === REQUEST_ACTION_DOWNLOAD_VIDEO_FROM_PAGE) {
+        try {
+            await downloadVideoInPageContext(request.url, request.filename);
+            sendResponse({ success: true });
+        } catch (error) {
+            sendResponse({ success: false, error: error.message });
+        }
         return true; // Keep message channel open for async response
     }
 });
@@ -49,11 +48,11 @@ async function downloadVideoInPageContext(url, filename) {
 
 // --- DOM Media Detection Logic ---
 
-function scanForMedia() {
+async function scanForMedia() {
     // Find all video and audio elements
     const mediaElements = document.querySelectorAll('video, audio');
 
-    mediaElements.forEach(element => {
+    mediaElements.forEach(async (element) => {
         let src = element.currentSrc || element.src;
         if (!src && element.querySelector('source')) {
             src = element.querySelector('source').src;
@@ -65,31 +64,22 @@ function scanForMedia() {
             // For blob: URLs, we can't download them directly usually, but report them anyway
             // The extension might handle them or user might want to know.
             // But the main goal is standard files.
-
-            // Check if it's already reported? We send it, background de-dupes.
-
-            const type = element.tagName.toLowerCase() === 'video' ? 'video/mp4' : 'audio/mp3'; // Guess fallback
-
-            // Check if extension context is valid
-            if (chrome.runtime?.id) {
-                try {
-                    chrome.runtime.sendMessage({
-                        action: 'mediaDetected',
-                        mediaInfo: {
-                            url: src,
-                            type: type,
-                            size: 'Unknown',
-                            timestamp: Date.now(),
-                            source: 'blob'
-                        }
-                    }, (response) => {
-                        if (chrome.runtime.lastError) {
-                            // Ignored: Receiver might not exist or other runtime error
-                        }
-                    });
-                } catch (e) {
-                    logger.warn('Extension context invalidated, stopping scan reports.');
-                }
+            const type = element.tagName.toLowerCase() === 'video' ? 'video/mp4' : 'audio/mp3'; // Guess fallback            
+            try {
+                const media = MediaInfo.create({
+                    url: src,
+                    type: type,
+                    size: 'Unknown',
+                    timestamp: Date.now(),
+                    source: 'blob'
+                });
+                // It would check if extension context is valid
+                await sendBroadcast({
+                    action: REQUEST_ACTION_MEDIA_DETECTED,
+                    mediaInfo: media
+                });
+            } catch (e) {
+                logger.warn('Extension context invalidated, stopping scan reports.');
             }
         }
     });
@@ -98,11 +88,130 @@ function scanForMedia() {
 // --- HLS Download Logic ---
 // Implemented in content script to have access to DOM APIs like URL.createObjectURL
 
+/**
+ * Parse M3U8 playlist content to extract segment URLs
+ * @param {string} playlistText - The M3U8 playlist content
+ * @param {string} url - The URL of the playlist for resolving relative URLs
+ * @returns {{segmentUrls: string[], effectiveUrl: string}} Object containing segment URLs and the effective playlist URL
+ */
+function parseM3U8Segments(playlistText, url) {
+    // Check if Master Playlist (contains other m3u8 links)
+    if (playlistText.includes('#EXT-X-STREAM-INF')) {
+        logger.info('Detected Master Playlist, resolving best stream...');
+        const lines = playlistText.split('\n');
+        let bestUrl = null;
+        let maxBandwidth = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
+                const bandwidthMatch = lines[i].match(/BANDWIDTH=(\d+)/);
+                const bandwidth = bandwidthMatch ? parseInt(bandwidthMatch[1]) : 0;
+
+                let streamUrl = lines[i + 1];
+                if (streamUrl && !streamUrl.startsWith('#')) {
+                    if (bandwidth > maxBandwidth) {
+                        maxBandwidth = bandwidth;
+                        bestUrl = resolveUrl(url, streamUrl);
+                    }
+                }
+            }
+        }
+
+        if (bestUrl) {
+            logger.info(`Switching to best stream (Bandwidth: ${maxBandwidth}):`, bestUrl);
+            return { segmentUrls: null, effectiveUrl: bestUrl }; // Need to refetch
+        }
+    }
+
+    // Parse Segments for regular playlist
+    const lines = playlistText.split('\n');
+    const segmentUrls = [];
+
+    for (let line of lines) {
+        line = line.trim();
+        if (line && !line.startsWith('#')) {
+            segmentUrls.push(resolveUrl(url, line));
+        }
+    }
+
+    return { segmentUrls, effectiveUrl: url };
+}
+
+/**
+ * Fetch playlist content from URL with signal support
+ * @param {string} url - The playlist URL to fetch
+ * @param {AbortSignal} signal - Abort signal for cancellation
+ * @returns {Promise<string>} The playlist text content
+ */
+async function fetchPlaylist(url, signal) {
+    const response = await fetch(url, { signal });
+    if (!response.ok) throw new Error(`Failed to fetch playlist: ${response.status}`);
+    return await response.text();
+}
+
+/**
+ * Download segments from URLs in batches with progress updates
+ * @param {string[]} segmentUrls - Array of segment URLs to download
+ * @param {AbortSignal} signal - Abort signal for cancellation
+ * @param {DownloadState} downloadState - Download state for progress updates
+ * @returns {Promise<ArrayBuffer[]>} Array of downloaded chunk buffers
+ */
+async function downloadSegments(segmentUrls, signal, downloadState) {
+    const chunks = [];
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
+        // ✅ CHECK ABORT SIGNAL AT START OF EACH BATCH
+        logger.info('Starting batch, signal.aborted:', signal.aborted);
+        if (signal.aborted) {
+            logger.info('Download cancelled during segment download');
+            const err = new Error('Download cancelled by user');
+            err.name = 'AbortError';
+            throw err;
+        }
+
+        const batch = segmentUrls.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(segUrl => fetch(segUrl, { signal }).then(res => res.arrayBuffer()));
+
+        try {
+            const buffers = await Promise.all(promises);
+            chunks.push(...buffers);
+
+            const downloadedCount = Math.min(i + BATCH_SIZE, segmentUrls.length);
+            logger.info(`Downloaded ${downloadedCount}/${segmentUrls.length} segments`);
+
+            await downloadState.updateProgress(downloadedCount, segmentUrls.length);
+
+        } catch (err) {
+            if (err.name === 'AbortError') throw err; // Re-throw cancel signal to outer block
+            logger.warn('Error fetching segment batch:', err);
+            throw new Error('Failed to download some segments');
+        }
+    }
+
+    return chunks;
+}
+
+/**
+ * Resolve a relative URL to an absolute URL
+ * @param {string} baseUrl - The base URL to resolve against
+ * @param {string} relativeUrl - The relative URL to resolve
+ * @returns {string} The resolved absolute URL
+ */
+function resolveUrl(baseUrl, relativeUrl) {
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    try {
+        return new URL(relativeUrl, baseUrl).href;
+    } catch (e) {
+        return relativeUrl;
+    }
+}
+
 // HLS State Tracking
 let hlsAbortController = null;
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'downloadHLS') {
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+    if (request.action === REQUEST_ACTION_DOWNLOAD_HLS) {
         // Ensure only the main frame processes the download to avoid duplicates (since content script runs in all frames)
         if (window !== window.top) {
             return;
@@ -115,50 +224,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         hlsAbortController = new AbortController();
 
         // Initialize state and respond immediately so UI can switch
-        const initialState = {
-            isDownloading: true,
-            status: 'downloading',
-            url: request.url,
-            filename: request.filename,
-            downloadedSegments: 0,
-            totalSegments: 0,
-            // this is the critical part: we need to store the tabId to allow popup/download page to know where to send cancel
-            // without this, the popup/download page will not be able to cancel the download
-            // they will just broadcast the action, and no one would receive it
-            tabId: request.tabId
-        };
-
-        chrome.storage.local.set({ hlsDownloadState: initialState }, () => {
-            if (chrome.runtime.lastError) {
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-
-            // Respond success to popup so it redirects
+        try {
+            let downloadState = new DownloadState(request.url, request.filename, request.tabId);
+            await downloadState.start();
             sendResponse({ success: true });
 
             // Start the actual download process asynchronously
-            downloadHLSInPage(request.url, request.filename, hlsAbortController.signal)
-                .catch(err => {
-                    logger.warn('HLS Download failed:', err);
-                    // Update state to error since we already told popup it started
-                    chrome.storage.local.get(['hlsDownloadState'], (result) => {
-                        if (!result.hlsDownloadState) {
-                            chrome.storage.local.set({
-                                hlsDownloadState: {
-                                    isDownloading: false,
-                                    status: 'error',
-                                    error: err.message,
-                                    url: request.url
-                                }
-                            });
-                        }
-                    });
-                });
-        });
+            await downloadHLSInPage(downloadState, hlsAbortController.signal);
+        } catch (error) {
+            logger.warn('HLS Start/Download failed:', error);
+            // Try sending failure if possible
+            try {
+                sendResponse({ success: false, error: error.message });
+            } catch (e) { }
+        }
 
-        return true; // Keep channel open for the storage set callback
-    } else if (request.action === 'cancelHLSDownload') {
+
+        return true; // Keep channel open for async response
+    }
+
+    if (request.action === REQUEST_ACTION_CANCEL_HLS_DOWNLOAD) {
         logger.info('Cancel HLS download requested');
         if (hlsAbortController) {
             logger.info('Aborting HLS controller');
@@ -167,162 +252,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
             logger.warn('No HLS controller to abort');
         }
-
-        // Clear the download state immediately to stop updates
-        chrome.storage.local.remove(['hlsDownloadState'], () => {
-            logger.info('Cleared hlsDownloadState from storage');
-        });
-
         // Just report success, the loop in downloadHLSInPage will catch the flag
         sendResponse({ success: true });
         return true;
     }
 });
 
-async function downloadHLSInPage(url, filename, signal) {
-    const updateState = (state) => {
-        // Check if aborted BEFORE updating
-        if (signal.aborted) {
-            logger.info('Signal aborted, skipping state update');
-            return;
-        }
-        // check whether hlsDownloadState is removed or not
-        chrome.storage.local.get(['hlsDownloadState'], (result) => {
-            if (!result.hlsDownloadState) {
-                logger.warn('hlsDownloadState not found, aborting state update');
-                return;
-            }
-            // bugfix: updateState was overwriting the state and erasing the tabId.
-            // updateState({ ...state, tabId: result.hlsDownloadState.tabId });
-            chrome.storage.local.set({ hlsDownloadState: { ...result.hlsDownloadState, ...state } });
-        });
-    };
+async function downloadHLSInPage(downloadState, signal) {
+    // Extract url and filename for convenience
+    let url = downloadState.url;
+    const filename = downloadState.filename;
 
     try {
         logger.info('Starting HLS download (Content Script) for:', url);
 
-        // 1. Fetch the playlist
-        const response = await fetch(url, { signal });
-        if (!response.ok) throw new Error(`Failed to fetch playlist: ${response.status}`);
-        let playlistText = await response.text();
+        // Fetch and parse the playlist
+        let playlistText = await fetchPlaylist(url, signal);
 
-        // 2. Check if Master Playlist (contains other m3u8 links)
-        if (playlistText.includes('#EXT-X-STREAM-INF')) {
-            logger.info('Detected Master Playlist, resolving best stream...');
-            const lines = playlistText.split('\n');
-            let bestUrl = null;
-            let maxBandwidth = 0;
-
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
-                    const bandwidthMatch = lines[i].match(/BANDWIDTH=(\d+)/);
-                    const bandwidth = bandwidthMatch ? parseInt(bandwidthMatch[1]) : 0;
-
-                    let streamUrl = lines[i + 1];
-                    if (streamUrl && !streamUrl.startsWith('#')) {
-                        if (bandwidth > maxBandwidth) {
-                            maxBandwidth = bandwidth;
-                            bestUrl = resolveUrl(url, streamUrl);
-                        }
-                    }
-                }
-            }
-
-            if (bestUrl) {
-                logger.info(`Switching to best stream (Bandwidth: ${maxBandwidth}):`, bestUrl);
-                return downloadHLSInPage(bestUrl, filename, signal);
-            }
+        // Parse segments, handling master playlists
+        let parseResult = parseM3U8Segments(playlistText, url);
+        while (!parseResult.segmentUrls) {
+            // Master playlist detected, fetch the best stream
+            playlistText = await fetchPlaylist(parseResult.effectiveUrl, signal);
+            parseResult = parseM3U8Segments(playlistText, parseResult.effectiveUrl);
         }
 
-        // 3. Parse Segments
-        const lines = playlistText.split('\n');
-        const segmentUrls = [];
-
-        for (let line of lines) {
-            line = line.trim();
-            if (line && !line.startsWith('#')) {
-                segmentUrls.push(resolveUrl(url, line));
-            }
-        }
-
+        const segmentUrls = parseResult.segmentUrls;
         if (segmentUrls.length === 0) {
             throw new Error('No segments found in playlist');
         }
 
+        // Update the download state with the effective URL
+        downloadState.url = parseResult.effectiveUrl;
+
         logger.info(`Found ${segmentUrls.length} segments. Starting download...`);
-        updateState({
-            isDownloading: true,
-            status: 'downloading',
-            url: url,
-            filename: filename,
-            downloadedSegments: 0,
-            totalSegments: segmentUrls.length
-        });
+        await downloadState.updateProgress(0, segmentUrls.length);
 
-        // 4. Download Segments
-        const chunks = [];
-        const BATCH_SIZE = 5;
+        // Download Segments
+        const chunks = await downloadSegments(segmentUrls, signal, downloadState);
 
-        for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
-            // ✅ CHECK ABORT SIGNAL AT START OF EACH BATCH
-            logger.info('Starting batch, signal.aborted:', signal.aborted);
-            if (signal.aborted) {
-                logger.info('Download cancelled during segment download');
-                const err = new Error('Download cancelled by user');
-                err.name = 'AbortError';
-                throw err;
-            }
-
-            const batch = segmentUrls.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(segUrl => fetch(segUrl, { signal }).then(res => res.arrayBuffer()));
-
-            try {
-                const buffers = await Promise.all(promises);
-                chunks.push(...buffers);
-
-                const downloadedCount = Math.min(i + BATCH_SIZE, segmentUrls.length);
-                logger.info(`Downloaded ${downloadedCount}/${segmentUrls.length} segments`);
-
-                // ✅ This updateState will check signal.aborted and throw if cancelled
-                updateState({
-                    isDownloading: true,
-                    status: 'downloading',
-                    url: url,
-                    filename: filename,
-                    downloadedSegments: downloadedCount,
-                    totalSegments: segmentUrls.length
-                });
-
-            } catch (err) {
-                if (err.name === 'AbortError') throw err; // Re-throw cancel signal to outer block
-                logger.warn('Error fetching segment batch:', err);
-                throw new Error('Failed to download some segments');
-            }
-        }
-
-        // 5. Merge
+        // Merge
         logger.info('Merging segments...');
-
-        // Check if cancelled before merging
-        if (signal.aborted) {
-            logger.info('Download cancelled before merging');
-            const err = new Error('Download cancelled by user');
-            err.name = 'AbortError';
-            throw err;
-        }
-
-        updateState({
-            isDownloading: true,
-            status: 'merging',
-            url: url,
-            filename: filename,
-            downloadedSegments: segmentUrls.length,
-            totalSegments: segmentUrls.length
-        });
+        await downloadState.startMerging();
 
         const combinedBlob = new Blob(chunks, { type: 'video/mp2t' });
 
-        // 6. Download using DOM
+        // Download using DOM
         logger.info('Triggering auto download...');
 
         const blobUrl = URL.createObjectURL(combinedBlob);
@@ -333,14 +308,7 @@ async function downloadHLSInPage(url, filename, signal) {
         document.body.appendChild(a);
         a.click();
 
-        updateState({
-            isDownloading: false,
-            status: 'complete',
-            url: url,
-            filename: filename,
-            downloadedSegments: segmentUrls.length,
-            totalSegments: segmentUrls.length
-        });
+        await downloadState.complete();
 
         setTimeout(() => {
             document.body.removeChild(a);
@@ -359,24 +327,16 @@ async function downloadHLSInPage(url, filename, signal) {
 
         // Real error
         logger.warn('❌ HLS Error:', error);
-        updateState({
-            isDownloading: false,
-            status: 'error',
-            error: error.message,
-            url: url
-        });
+        await downloadState.fail(error.message);
         throw error;
     }
 }
 
-function resolveUrl(baseUrl, relativeUrl) {
-    if (relativeUrl.startsWith('http')) return relativeUrl;
-    try {
-        return new URL(relativeUrl, baseUrl).href;
-    } catch (e) {
-        return relativeUrl;
-    }
-}
+/*
+ * This code implements a "belt and suspenders" approach to detecting media on a webpage.
+ * It uses two different strategies simultaneously to ensure it never misses a media element 
+ * (like a video or audio player), even if one method fails.
+ */
 
 // Initial scan
 scanForMedia();

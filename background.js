@@ -1,6 +1,7 @@
 // Background script to monitor network requests for media files
 importScripts('license.js');
 importScripts('logger.js');
+importScripts('common.js');
 importScripts('media_info.js');
 importScripts('media_store.js');
 importScripts('media_detector.js');
@@ -14,19 +15,14 @@ let mediaStore = new MediaStore();
 // Track the current active tab ID
 let activeTabId = null;
 
-// Initialize active tab ID on startup
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  activeTabId = tabs[0]?.id || null;
-});
-
 // Initialize license on installation
 chrome.runtime.onInstalled.addListener(() => {
   initLicense();
 });
 
 // Listen for tab activation changes
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  activeTabId = activeInfo.tabId;
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  activeTabId = await getActiveTabId();
 });
 
 // Listen for tab updates to detect bilibili video pages
@@ -69,19 +65,17 @@ chrome.webRequest.onCompleted.addListener(
 );
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'refresh') {
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  if (request.action === REQUEST_ACTION_MEDIA_REFRESH) {
     // Clear old entries for the active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (activeTabId) {
-        mediaStore.clearForTab(activeTabId, 5 * 60 * 1000); // 5 minutes
-      }
-      sendResponse({ status: 'refreshed' });
-    });
+    if (activeTabId) {
+      mediaStore.clearForTab(activeTabId, 5 * 60 * 1000); // 5 minutes
+    }
+    sendResponse({ status: 'refreshed' });
     return true; // Keep message channel open for async response
   }
 
-  if (request.action === 'mediaDetected') {
+  if (request.action === REQUEST_ACTION_MEDIA_DETECTED) {
     let mediaInfo = request.mediaInfo;
     // Enrich with tabId from sender if not present
     if (sender.tab && !mediaInfo.tabId) {

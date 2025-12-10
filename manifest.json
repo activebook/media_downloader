@@ -25,6 +25,7 @@
       ],
       "js": [
         "logger.js",
+        "common.js",
         "media_info.js",
         "download_state.js",
         "content.js"
