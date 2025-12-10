@@ -518,19 +518,17 @@ document.addEventListener('DOMContentLoaded', function () {
         throw new Error('No Active Tab');
       }
 
-      chrome.tabs.sendMessage(activeTabId, {
+      const response = await sendMessage(activeTabId, {
         action: REQUEST_ACTION_DOWNLOAD_HLS,
         url: media.url,
         filename: 'video_m3u8_' + Date.now() + '.ts',
         tabId: activeTabId
-      }, { frameId: 0 }, (response) => {
-        if (chrome.runtime.lastError || !response || !response.success) {
-          handleMergeError(mergeBtn, response?.error || chrome.runtime.lastError?.message);
-        } else {
-          window.location.replace('download.html');
-        }
       });
-
+      if (chrome.runtime.lastError) {
+        handleMergeError(mergeBtn, chrome.runtime.lastError?.message);
+      } else {
+        window.location.replace('download.html');
+      }
     } catch (e) {
       handleMergeError(mergeBtn, e.message);
     }

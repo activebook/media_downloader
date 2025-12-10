@@ -49,6 +49,11 @@ async function downloadVideoInPageContext(url, filename) {
 // --- DOM Media Detection Logic ---
 
 async function scanForMedia() {
+    if (!extensionContextValid()) {
+        logger.info('Extension context invalidated, stopping scan reports just now, try again later.');
+        return;
+    }
+
     // Find all video and audio elements
     const mediaElements = document.querySelectorAll('video, audio');
 
@@ -64,12 +69,12 @@ async function scanForMedia() {
             // For blob: URLs, we can't download them directly usually, but report them anyway
             // The extension might handle them or user might want to know.
             // But the main goal is standard files.
-            const type = element.tagName.toLowerCase() === 'video' ? 'video/mp4' : 'audio/mp3'; // Guess fallback            
+            const type = element.tagName.toLowerCase() === 'video' ? 'video' : 'audio'; // Guess fallback            
             try {
                 const media = MediaInfo.create({
                     url: src,
                     type: type,
-                    size: 'Unknown',
+                    size: null,
                     timestamp: Date.now(),
                     source: 'blob'
                 });
@@ -79,7 +84,7 @@ async function scanForMedia() {
                     mediaInfo: media
                 });
             } catch (e) {
-                logger.warn('Extension context invalidated, stopping scan reports.');
+                logger.warn(e.message);
             }
         }
     });
@@ -249,8 +254,6 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
             logger.info('Aborting HLS controller');
             hlsAbortController.abort();
             hlsAbortController = null;
-        } else {
-            logger.warn('No HLS controller to abort');
         }
         // Just report success, the loop in downloadHLSInPage will catch the flag
         sendResponse({ success: true });

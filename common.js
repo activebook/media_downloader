@@ -11,9 +11,6 @@ const REQUEST_ACTION_MEDIA_REFRESH = 'mediaRefresh';
  * @returns {Promise<number>} Active tab ID
  */
 async function getActiveTabId() {
-  if (!chrome.runtime?.id) {
-    throw new Error('Extension context unavailable');
-  }
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   return tabs[0]?.id ?? null;
 }
@@ -47,11 +44,9 @@ async function isValidTab(tabId) {
  * @returns {Promise<Object>} The response from the tab
  */
 async function sendMessage(tabId, message) {
-  if (!chrome.runtime?.id) {
-    throw new Error('Extension context unavailable');
-  }
   try {
-    const response = await chrome.tabs.sendMessage(tabId, message);
+    // specifies which frame to send to (0 for main frame).
+    const response = await chrome.tabs.sendMessage(tabId, message, { frameId: 0 });
     return response;
   } catch (error) {
     throw new Error(`Failed to send message to tab ${tabId}:`, error.message);
@@ -64,15 +59,20 @@ async function sendMessage(tabId, message) {
  * @returns {Promise<Object>} The response from the tabs
  */
 async function sendBroadcast(message) {
-  if (!chrome.runtime?.id) {
-    throw new Error('Extension context unavailable');
-  }
   try {
     const response = await chrome.runtime.sendMessage(message);
     return response;
   } catch (error) {
     throw new Error(`Failed to send broadcast message:`, error.message);
   }
+}
+
+/* 
+ * Check if the extension context is valid
+ * @returns {boolean} True if the extension context is valid, false otherwise
+ */
+function extensionContextValid() {
+  return chrome.runtime?.id;
 }
 
 // Usage
