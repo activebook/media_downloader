@@ -58,7 +58,7 @@ class MediaStore {
     let removedCount = 0;
 
     for (const [url, media] of this.store.entries()) {
-      if (media.tabId === tabId || media.isExpired(maxAge)) {
+      if (media.tabId === tabId && media.isExpired(maxAge)) {
         this.store.delete(url);
         removedCount++;
       }

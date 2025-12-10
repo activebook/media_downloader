@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Item Styling
     if (isBilibiliVideo) {
-      item.className = 'flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-green-50 border-2 border-green-300 rounded-md shadow-md';
+      item.className = 'flex flex-col p-3 bg-gradient-to-r from-green-50 to-green-50 border-2 border-green-300 rounded-md shadow-md';
     } else if (isHLS) {
       item.className = 'flex flex-col p-3 bg-purple-50 border border-purple-200 rounded-md shadow-sm';
     } else if (isBlob) {
