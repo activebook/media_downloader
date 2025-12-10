@@ -360,7 +360,8 @@ document.addEventListener('DOMContentLoaded', function () {
     } else if (isHLS) {
       item.className = 'flex flex-col p-3 bg-purple-50 border border-purple-200 rounded-md shadow-sm';
     } else if (isBlob) {
-      item.className = 'flex flex-col p-3 bg-blue-50 border border-blue-200 rounded-md shadow-sm';
+      // item.className = 'flex flex-col p-3 bg-blue-50 border border-blue-200 rounded-md shadow-sm';
+      item.className = 'flex flex-col p-3 bg-gray-200 border border-gray-200 rounded-md shadow-sm';
     } else {
       item.className = 'flex justify-between items-center p-3 bg-white border border-gray-200 rounded-md shadow-sm';
     }
@@ -484,8 +485,10 @@ document.addEventListener('DOMContentLoaded', function () {
       item.appendChild(biliRow);
     }
 
-    // Blob Download Row (Bottom)
+    // Blob Download Row (Bottom)    
     if (isBlob) {
+      // We can't download it, just hide the button
+      /*
       const blobRow = document.createElement('div');
       blobRow.className = 'mt-2 pt-2 border-t border-blue-200 w-full flex flex-col gap-2';
 
@@ -497,10 +500,11 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
       // Store media data in attributes for event delegation
       blobBtn.dataset.mediaUrl = media.url;
-      blobBtn.dataset.source = media.source || 'blob';
+      blobBtn.dataset.source = media.source || 'blob';      
 
       blobRow.appendChild(blobBtn);
       item.appendChild(blobRow);
+      */
     }
 
     // HLS Merge Row (Bottom)
