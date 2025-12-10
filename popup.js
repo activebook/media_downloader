@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
       // Send message using common constant
-      const response = await sendBroadcastMessage({ action: REQUEST_ACTION_MEDIA_REFRESH });
+      const response = await sendBroadcast({ action: REQUEST_ACTION_MEDIA_REFRESH });
       if (response && response.status === 'refreshed') {
         showStatus('Refreshed successfully', 'green');
         loadMedia();
@@ -352,6 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const isBilibiliVideo = (media.source && media.source.toLowerCase().includes('bilibili')) || false;
     const isBlob = (media.source === 'blob') || (media.url && media.url.startsWith('blob:'));
     const isHLS = media.url.includes('.m3u8') || (media.type && (media.type.includes('mpegurl') || media.type.includes('hls')));
+    const isHttpMedia = (media.source === 'http') || (media.url && media.url.startsWith('http'));
 
     // Item Styling
     if (isBilibiliVideo) {
@@ -413,9 +414,35 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isBilibiliVideo) {
       size.className = 'text-xs text-cyan-600 mt-1 font-medium';
       size.textContent = `Source: ${media.source}`;
+    } else if (isHttpMedia) {
+      size.className = 'text-xs text-gray-400 mt-1';
+      if (media.size) {
+        size.textContent = `Size: ${MediaInfo.getFormattedSize(media)}`;
+      } else {
+        size.textContent = 'Calculating...';
+        // Ask background script to get the size
+        sendBroadcast({
+          action: REQUEST_ACTION_MEDIA_GETSIZE,
+          url: media.url
+        }).then(response => {
+          // console.log('Response:', response); // DEBUG
+          if (response && response.size !== null) {
+            media.size = response.size;
+            // console.log('Set media.size to:', media.size); // DEBUG
+            const formatted = MediaInfo.getFormattedSize(media);
+            // console.log('Formatted size:', formatted); // DEBUG
+            size.textContent = `Size: ${formatted}`;
+          } else {
+            size.textContent = 'Size: Unknown (Failed to fetch)';
+          }
+        }).catch(error => {
+          size.textContent = 'Size: Unknown (Failed to fetch)';
+          logger.warn('Size fetch error:', error);
+        });
+      }
     } else {
       size.className = 'text-xs text-gray-400 mt-1';
-      size.textContent = `Size: ${media.getFormattedSize()}`;
+      size.textContent = `Size: ${MediaInfo.getFormattedSize(media)}`;
     }
 
     info.appendChild(type);

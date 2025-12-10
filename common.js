@@ -6,6 +6,7 @@ const REQUEST_ACTION_DOWNLOAD_VIDEO_FROM_PAGE = 'downloadVideoFromPage';
 const REQUEST_ACTION_DOWNLOAD_BLOB = 'downloadBlob';
 const REQUEST_ACTION_MEDIA_DETECTED = 'mediaDetected';
 const REQUEST_ACTION_MEDIA_REFRESH = 'mediaRefresh';
+const REQUEST_ACTION_MEDIA_GETSIZE = 'mediaGetSize';
 
 /**
  * Get the currently active tab in a promise-based way
@@ -64,7 +65,7 @@ async function sendBroadcast(message) {
     const response = await chrome.runtime.sendMessage(message);
     return response;
   } catch (error) {
-    throw new Error(`Failed to send broadcast message:`, error.message);
+    throw new Error(`Failed to send broadcast message: ${error.message}`);
   }
 }
 

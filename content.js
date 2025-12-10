@@ -4,14 +4,12 @@
 const logger = new ExtensionLogger('Content');
 
 // Listen for messages from popup/background
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === REQUEST_ACTION_DOWNLOAD_VIDEO_FROM_PAGE) {
-        try {
-            await downloadVideoInPageContext(request.url, request.filename);
-            sendResponse({ success: true });
-        } catch (error) {
-            sendResponse({ success: false, error: error.message });
-        }
+        downloadVideoInPageContext(request.url, request.filename)
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+
         return true; // Keep message channel open for async response
     }
 });
@@ -69,14 +67,14 @@ async function scanForMedia() {
             // For blob: URLs, we can't download them directly usually, but report them anyway
             // The extension might handle them or user might want to know.
             // But the main goal is standard files.
-            const type = element.tagName.toLowerCase() === 'video' ? 'video' : 'audio'; // Guess fallback            
+            const type = element.tagName.toLowerCase() === 'video' ? 'video' : 'audio'; // Guess fallback
             try {
                 const media = MediaInfo.create({
                     url: src,
                     type: type,
                     size: null,
                     timestamp: Date.now(),
-                    source: 'blob'
+                    source: src.startsWith('http') ? 'http' : 'blob'
                 });
                 // It would check if extension context is valid
                 await sendBroadcast({
@@ -215,7 +213,7 @@ function resolveUrl(baseUrl, relativeUrl) {
 // HLS State Tracking
 let hlsAbortController = null;
 
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === REQUEST_ACTION_DOWNLOAD_HLS) {
         // Ensure only the main frame processes the download to avoid duplicates (since content script runs in all frames)
         if (window !== window.top) {
@@ -231,11 +229,11 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         // Initialize state and respond immediately so UI can switch
         try {
             let downloadState = new DownloadState(request.url, request.filename, request.tabId);
-            await downloadState.start();
-            sendResponse({ success: true });
-
-            // Start the actual download process asynchronously
-            await downloadHLSInPage(downloadState, hlsAbortController.signal);
+            downloadState.start().then(() => {
+                sendResponse({ success: true });
+                // Start the actual download process asynchronously
+                downloadHLSInPage(downloadState, hlsAbortController.signal);
+            });
         } catch (error) {
             logger.warn('HLS Start/Download failed:', error);
             // Try sending failure if possible
@@ -261,12 +259,9 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     }
 
     if (request.action === REQUEST_ACTION_DOWNLOAD_BLOB) {
-        try {
-            await downloadBlobUrl(request.url, request.filename);
-            sendResponse({ success: true });
-        } catch (error) {
-            sendResponse({ success: false, error: error.message });
-        }
+        downloadBlobUrl(request.url, request.filename)
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Keep message channel open for async response
     }
 });

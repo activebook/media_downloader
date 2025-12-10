@@ -32,12 +32,14 @@ class MediaInfo {
     Object.defineProperties(this, {
       url: { value: url, enumerable: true },
       type: { value: type, enumerable: true },
-      size: { value: size, enumerable: true },
+      size: { value: size, enumerable: true, writable: true }, // Make size mutable
       tabId: { value: tabId, enumerable: true },
       timestamp: { value: timestamp, enumerable: true },
       source: { value: source, enumerable: true }
     });
 
+    // Cannot modify media after creation.
+    // Prevent add/remove properties dynamically
     Object.seal(this);
   }
 
@@ -90,13 +92,13 @@ class MediaInfo {
   }
 
   // Get human-readable size string
-  getFormattedSize() {
-    if (this.size === null || this.size === undefined) {
+  static getFormattedSize(media) {
+    if (media.size === null || media.size === undefined) {
       return 'Unknown';
     }
 
+    let size = media.size;
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let size = this.size;
     let unitIndex = 0;
 
     while (size >= 1024 && unitIndex < units.length - 1) {
@@ -138,7 +140,7 @@ class MediaInfo {
 
   // String representation for debugging
   toString() {
-    return `MediaInfo(${this.type}: ${this.url}, size: ${this.getFormattedSize()}, source: ${this.source ?? 'unknown'})`;
+    return `MediaInfo(${this.type}: ${this.url}, size: ${MediaInfo.getFormattedSize(this)}, source: ${this.source ?? 'unknown'})`;
   }
 }
 

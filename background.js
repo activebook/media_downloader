@@ -65,7 +65,7 @@ chrome.webRequest.onCompleted.addListener(
 );
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === REQUEST_ACTION_MEDIA_REFRESH) {
     // Clear old entries for the active tab
     if (activeTabId) {
@@ -73,6 +73,19 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     }
     sendResponse({ status: 'refreshed' });
     return true; // Keep message channel open for async response
+  }
+
+  if (request.action === REQUEST_ACTION_MEDIA_GETSIZE) {
+    // Fetch the size of the remote file
+    fetch(request.url, { method: 'HEAD' })
+      .then(response => {
+        const contentLength = response.headers.get('content-length');
+        sendResponse({ size: contentLength ? parseInt(contentLength) : null });
+      })
+      .catch(error => {
+        sendResponse({ size: null, error: error.message });
+      });
+    return true; // Keep the message channel open for async response
   }
 
   if (request.action === REQUEST_ACTION_MEDIA_DETECTED) {
@@ -91,6 +104,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     mediaStore.addMedia(mediaInfo);
     logger.info('DOM detected media:', mediaInfo);
     sendResponse({ received: true });
+    return true; // Keep message channel open for async response
   }
 });
 
