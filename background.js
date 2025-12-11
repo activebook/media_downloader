@@ -5,12 +5,16 @@ importScripts('common.js');
 importScripts('media_info.js');
 importScripts('media_store.js');
 importScripts('media_detector.js');
+importScripts('bili.js');
 
 // Initialize logger
 const logger = new ExtensionLogger('Background');
 
 // Store media URLs with metadata
 let mediaStore = new MediaStore();
+
+// Bilibili video handler with URL deduplication
+let biliHandler = new BiliHandler();
 
 // Track the current active tab ID
 let activeTabId = null;
@@ -28,7 +32,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Listen for tab updates to detect bilibili video pages
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tabId === activeTabId && changeInfo.status === 'complete' && tab.url) {
-    handleBilibiliVideo(tab.url, tabId);
+    biliHandler.handleBilibiliVideo(tab.url, tabId, mediaStore, logger);
   }
 });
 
@@ -116,41 +120,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 });
-
-// Handle bilibili video page detection and API calls
-async function handleBilibiliVideo(url, tabId) {
-  // Check if this is a bilibili video page
-  const videoPage = MediaDetector.extractBilibiliVideoPage(url);
-  if (!videoPage) {
-    return;
-  }
-
-  try {
-    // Fetch the MP4 URL from the API
-    const mp4Url = await MediaDetector.fetchBilibiliVideoUrl(videoPage.apiBvCode);
-
-    if (!mp4Url) {
-      logger.warn('Failed to fetch bilibili video URL for BV:', videoPage.bvCode);
-      return;
-    }
-
-    // Create media info for the MP4 URL
-    const mediaInfo = MediaInfo.create({
-      url: mp4Url,
-      type: 'video',
-      size: null, // API doesn't provide size
-      tabId: tabId,
-      timestamp: Date.now(),
-      source: 'bilibili original' // Mark as coming from bilibili original video
-    });
-
-    // Add to media store (avoid duplicates)
-    mediaStore.addMedia(mediaInfo);
-    logger.info('Added bilibili video to media store:', mp4Url);
-  } catch (error) {
-    logger.warn('Error fetching bilibili video URL:', error);
-  }
-}
 
 // --- HLS Download Logic Removed (Moved to Content Script) ---
 // Service Workers cannot create ObjectURLs from Blobs efficiently in standard API.
