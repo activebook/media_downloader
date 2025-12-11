@@ -7,6 +7,8 @@
     "postcss-cli": "^10.0.0"
   },
   "scripts": {
-    "build-css": "npx postcss input.css -o tailwind.min.css"
+    "build-css": "npx postcss input.css -o tailwind.min.css",
+    "copy-files": "mkdir -p dist && cp manifest.json download.html options.html popup.html background.js bili.js common.js content.js download_state.js download.js license.js logger.js media_detector.js media_info.js media_store.js options.js popup.js tailwind.min.css dist/ && cp -r icons dist/",
+    "build": "npm run build-css && npm run copy-files"
   }
 }
