@@ -14,22 +14,30 @@ A Chrome extension that automatically detects video and audio media on web pages
 
 The Media Downloader Chrome Extension is designed to automatically detect and download media files from various websites, including popular platforms like **QQ Music**, **Ximalaya**, **Netease Cloud Music**, **Bilibili**, **Suno**, **Spotify**, **Apple Music** and **Douyin**. It supports **HLS (M3U8)** streaming video downloading and merging!
 
+### Settings
+
+- **Media Display Options**: Configure whether to display video segments or blobs in the extension settings page.
+
 ### Screenshots
 
-| M3U8 | Download |
+| Link | Download |
 |----------|------------|
-| ![m3u8](https://i.imgur.com/uoFUZ3P.png) | ![m3u8 download](https://i.imgur.com/ghvnrbt.png) |
+| m3u8 | ![m3u8](screenshots/md_m3u8.png) |
+| Download| ![m3u8 download](screenshots/md_m3u8_download.png) |
+| Bilibili | ![bilibili](screenshots/md_bilibili_link.png) |
 
+---
 
 | Platform | Screenshot |
 |----------|------------|
-| QQ Music | ![QQ Music](https://i.imgur.com/wf28xv2.png) |
-| Ximalaya | ![Ximalaya](https://i.imgur.com/IPe2Agr.png) |
-| Netease Cloud Music | ![Netease Cloud Music](https://i.imgur.com/4clSuPr.png) |
-| Bilibili | ![Bilibili](https://i.imgur.com/Rt5Saki.png) |
-| Apple Music | ![Apple Music](https://i.imgur.com/EAvoVG3.png) |
-| Spotify | ![Spotify](https://i.imgur.com/YyO7IXE.png) |
-| Download | ![Download](https://i.imgur.com/yo4cVzC.png) |
+| QQ Music | ![QQ Music](screenshots/md_qqmusic.png) |
+| Ximalaya | ![Ximalaya](screenshots/md_ximalaya.png) |
+| Netease Cloud Music | ![Netease Cloud Music](screenshots/md_netease.png) |
+| Bilibili | ![Bilibili](screenshots/md_bilibili.png) |
+| Apple Music | ![Apple Music](screenshots/md_applemusic.png) |
+| Spotify | ![Spotify](screenshots/md_spotify.png) |
+| Downloaded | ![Downloaded](screenshots/md_downloaded.png) |
+| Settings | ![Settings](screenshots/md_settings.png) |
 
 ## Multi-Site Media Detection
 
