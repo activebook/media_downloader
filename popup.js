@@ -77,8 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Set up event delegation for download buttons to prevent multiple downloads
     setupEventDelegation();
 
-    // Initial media load
-    loadMedia();
+    // Initial media load removed here as it is handled by checkLicenseStatus
   }
 
   function checkDownloadState() {
