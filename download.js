@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const filenameEl = document.getElementById('filename');
     const urlEl = document.getElementById('url');
     const statusBadge = document.getElementById('statusBadge');
@@ -14,27 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const doneSection = document.getElementById('doneSection');
 
     const logger = new ExtensionLogger('HLS Download');
+    let pollInterval = null;
 
     // Poll for status directly from checking storage
     // The background/content script will update this.
-    function checkStatus() {
+    async function checkStatus() {
+        try {
+            const state = await DownloadState.loadFromStorage();
 
-        chrome.storage.local.get(['hlsDownloadState'], (result) => {
-            const state = result.hlsDownloadState;
-
-            // If not downloading and not done recently, go back to popup
-            // Allow 'complete' status to stay to show Done screen
-            if (!state || (!state.isDownloading && state.status !== 'complete')) {
-                // If we are showing done section, we might want to stay?
-                // Actually if state is missing, we must go back.
-                // If state is there but not downloading and not complete (e.g. error that cleared downloading flag?),
-                // we might want to show error?
-                // Let's rely on status.
-
+            /*
+             * If not downloading and not done recently, go back to popup
+             * Allow 'complete' status to stay to show Done screen
+             */
+            if (!state || state.isCancelled || state.isError) {
                 if (!doneSection.classList.contains('hidden')) {
-                    // If we are already done, and state is gone or changed, maybe stay?
-                    // But if state is gone, we usually want to cleanup.
-                    // But let's stick to the logic: if status is complete, let it be handled by updateUI
                     return;
                 }
 
@@ -42,29 +35,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Update UI
+            // Update UI (use state object from DownloadState instance)
             updateUI(state);
-        });
+        } catch (error) {
+            logger.error('Failed to load download state:', error);
+            window.location.href = 'popup.html';
+        }
     }
 
     function updateUI(state) {
         if (state.url) urlEl.textContent = state.url;
         if (state.filename) filenameEl.textContent = state.filename;
 
-        // Calculate progress
-        const total = state.totalSegments || 0;
-        const current = state.downloadedSegments || 0;
-        let percent = 0;
-        if (total > 0) {
-            percent = Math.round((current / total) * 100);
-        } else if (state.status === 'merging') {
-            percent = 100;
-        }
+        // Use progress from state
+        const percent = state.status === 'merging' ? 100 : state.progress;
 
         // Update Text & Bars
         percentageEl.textContent = `${percent}%`;
         progressBar.style.width = `${percent}%`;
-        downloadedSegmentsEl.textContent = `${current} segments`;
+        const downloaded = state.downloadedSegments || 0;
+        const total = state.totalSegments || 0;
+        downloadedSegmentsEl.textContent = `${downloaded} segments`;
         totalSegmentsEl.textContent = total ? `${total} total` : 'Scanning...';
 
         // State Handling
@@ -106,8 +97,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function goBack() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+        // Clean up state
+        try {
+            await DownloadState.clear();
+        } catch (e) {
+            logger.warn('Error clearing state on back:', e);
+        }
+        window.location.href = 'popup.html';
+    }
+
     // Cancel Click
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener('click', async () => {
         // Stop polling immediately
         if (pollInterval) {
             clearInterval(pollInterval);
@@ -115,59 +120,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Tell content script to cancel
-        chrome.storage.local.get(['hlsDownloadState'], (result) => {
-            const state = result.hlsDownloadState;
+        try {
+            const state = await DownloadState.loadFromStorage();
             if (state && state.tabId) {
-                // ✅ Check if tab still exists first
-                chrome.tabs.get(state.tabId, (tab) => {
-                    if (chrome.runtime.lastError) {
-                        // Tab doesn't exist anymore - just clean up and go back
-                        logger.warn('Tab no longer exists, cleaning up');
-                        chrome.storage.local.remove(['hlsDownloadState'], () => {
-                            window.location.href = 'popup.html';
-                        });
-                        return;
-                    }
+                // ✅ Check if tab still exists first  
+                if (!await isValidTab(state.tabId)) {
+                    logger.warn('Tab no longer exists, cleaning up');
+                    return;
+                }
 
-                    // Tab exists, send cancel message
-                    chrome.tabs.sendMessage(state.tabId, {
-                        action: 'cancelHLSDownload'
-                    }, () => {
-                        // ✅ Ignore connection errors - tab might have reloaded
-                        if (chrome.runtime.lastError) {
-                            logger.warn('Could not send cancel message:', chrome.runtime.lastError.message);
-                            // Still clean up and redirect
-                        }
-
-                        chrome.storage.local.remove(['hlsDownloadState'], () => {
-                            window.location.href = 'popup.html';
-                        });
-                    });
-                });
+                // Tab exists, send cancel message
+                await sendMessage(state.tabId, { action: REQUEST_ACTION_CANCEL_HLS_DOWNLOAD });
+                // ✅ Ignore connection errors - tab might have reloaded/closed
+                if (chrome.runtime.lastError) {
+                    logger.warn('Could not send cancel message:', chrome.runtime.lastError.message);
+                }
             } else {
                 // No tabId - just clean up and go back
                 logger.warn('No tabId found in state, falling back to runtime broadcast');
-                chrome.runtime.sendMessage({ action: 'cancelHLSDownload' }, () => {
-                    chrome.storage.local.remove(['hlsDownloadState'], () => {
-                        window.location.href = 'popup.html';
-                    });
-                });
+                await sendBroadcast({ action: REQUEST_ACTION_CANCEL_HLS_DOWNLOAD });
             }
-        });
+        } catch (error) {
+            logger.warn(error.message);
+        } finally {
+            await goBack();
+        }
     });
 
-    backBtn.addEventListener('click', () => {
-        if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-        }
-        // Clean up state
-        chrome.storage.local.remove(['hlsDownloadState'], () => {
-            window.location.href = 'popup.html';
-        });
+    backBtn.addEventListener('click', async () => {
+        await goBack();
     });
 
     // Initial check and interval
-    checkStatus();
-    pollInterval = setInterval(checkStatus, 1000);
+    await checkStatus();
+    pollInterval = setInterval(() => checkStatus(), 1000);
 });

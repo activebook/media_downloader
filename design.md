@@ -325,3 +325,63 @@ The use of Chrome's Manifest V3 APIs ensures compatibility with modern browser s
 **Key Architectural Insight**: The tab-specific design is particularly clever - downloads always execute in the active tab context, ensuring DOM accessibility, proper authentication, and user intent alignment. This prevents common extension pitfalls like attempting DOM manipulation in suspended tabs or losing authentication context.
 
 Future development should focus on expanding format support, improving HLS handling, and adding user experience enhancements while maintaining the current security and performance standards.
+
+## Specials
+
+common bug in Chrome Extensions, specifically with chrome.runtime.onMessage.
+
+### The Problem
+In Chrome Extensions (Manifest V3), the onMessage listener works like this:
+
+If you want to send a response asynchronously (later), you must return true synchronously from the listener function.
+
+An async function always returns a Promise. It does not return true.
+
+If you do this, the channel closes immediately, and your sendResponse will fail:
+
+```javascript
+// ❌ WRONG: This will fail in Chrome Extensions
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  const data = await someAsyncFunction();
+  sendResponse(data); // Error: The message port closed before a response was received.
+});
+```
+
+The Solution: Mixed Strategy
+In this specific circumstance, you cannot make the listener callback async. You must use a standard function, return true immediately, and use .then() or a separate async wrapper to handle the logic.
+
+Option A: The .then() approach (safest for extensions)
+
+```javascript
+// ✅ CORRECT for Chrome Extensions
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  
+  // 1. Trigger the async work using .then()
+  someAsyncFunction(message.data)
+    .then((result) => sendResponse({ success: true, data: result }))
+    .catch((error) => sendResponse({ success: false, error: error.message }));
+
+  // 2. Return true SYNCHRONOUSLY to keep the channel open
+  return true; 
+});
+```
+
+Option B: The IIFE / Wrapper approach If you hate .then() syntax, you can define an async function inside the listener, call it, and still return true.
+
+```javascript
+// ✅ ALSO CORRECT
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  
+  const handleAsync = async () => {
+    try {
+      const result = await someAsyncFunction(message.data);
+      sendResponse({ success: true, data: result });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+  };
+
+  handleAsync(); // Fire the async function
+  return true;   // Return true immediately
+});
+```

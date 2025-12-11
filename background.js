@@ -1,20 +1,23 @@
 // Background script to monitor network requests for media files
 importScripts('license.js');
 importScripts('logger.js');
+importScripts('common.js');
+importScripts('media_info.js');
+importScripts('media_store.js');
+importScripts('media_detector.js');
+importScripts('bili.js');
+
+// Initialize logger
+const logger = new ExtensionLogger('Background');
 
 // Store media URLs with metadata
-let mediaStore = new Map();
-// Track if a merged download is currently active to prevent self-detection of segments
-let isDownloadingActive = false;
+let mediaStore = new MediaStore();
+
+// Bilibili video handler with URL deduplication
+let biliHandler = new BiliHandler();
 
 // Track the current active tab ID
 let activeTabId = null;
-const logger = new ExtensionLogger('Background');
-
-// Initialize active tab ID on startup
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  activeTabId = tabs[0]?.id || null;
-});
 
 // Initialize license on installation
 chrome.runtime.onInstalled.addListener(() => {
@@ -22,14 +25,14 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Listen for tab activation changes
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  activeTabId = activeInfo.tabId;
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  activeTabId = await getActiveTabId();
 });
 
 // Listen for tab updates to detect bilibili video pages
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tabId === activeTabId && changeInfo.status === 'complete' && tab.url) {
-    handleBilibiliVideo(tab.url, tabId);
+    biliHandler.handleBilibiliVideo(tab.url, tabId, mediaStore, logger);
   }
 });
 
@@ -37,209 +40,86 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.webRequest.onCompleted.addListener(
   (details) => {
     // Only process requests from the active tab
-    if (details.tabId !== activeTabId) {
-      return;
-    }
-
-    // logger.info('Web req÷uest details:', details.url, details.responseHeaders);
-
-    // If a known HLS download is active, ignore TS/segment files to prevent self-detection flood
-    // if (isDownloadingActive) {
-    // Regardless of download state, ignore TS/segment files to prevent self-detection flood
-    if (details.url.endsWith('.ts') || details.url.includes('.ts?')) {
-      return;
-    }
-    const type = details.responseHeaders?.find(header => header.name.toLowerCase() === 'content-type')?.value;
-    if (type === 'video/mp2t' || type === 'application/octet-stream') {
-      // Strict check: if it looks like a segment, ignore it.
-      return;
-    }
+    /**
+     * Detects m3u8 in all iframes:
+     * Will catch m3u8 requests from iframes in any tab, not just the active one
+     * 
+     * More comprehensive monitoring:
+     * Will detect media from background tabs and iframes that aren't currently visible
+     * 
+     */
+    // if (details.tabId !== activeTabId) {
+    //   return;
     // }
 
-    const contentType = details.responseHeaders?.find(header =>
-      header.name.toLowerCase() === 'content-type'
-    )?.value;
+    // Use MediaDetector to analyze the request
+    const detection = MediaDetector.detect(details);
 
-    const contentDisposition = details.responseHeaders?.find(header =>
-      header.name.toLowerCase() === 'content-disposition'
-    )?.value;
-
-    // logger.info('Content-Type:', contentType);
-    // logger.info('Content-Disposition:', contentDisposition);
-
-    let isMedia = false;
-    let mediaType = contentType;
-
-    if (contentType && (contentType.startsWith('video/') || contentType.startsWith('audio/') || contentType === 'application/octet-stream' || contentType === 'application/vnd.apple.mpegurl' || contentType === 'application/x-mpegurl')) {
-      isMedia = true;
-    } else if (contentDisposition && contentDisposition.includes('inline')) {
-      // Check filename in content-disposition for media extensions
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (filenameMatch) {
-        const filename = filenameMatch[1].replace(/['"]/g, '');
-        const extension = filename.split('.').pop().toLowerCase();
-        const mediaExtensions = ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'm3u8'];
-        if (mediaExtensions.includes(extension)) {
-          isMedia = true;
-          mediaType = `unknown/${extension}`;
-          // logger.info('Detected media via content-disposition filename extension:', filename, extension);
-        }
-      }
-    }
-
-    // Explicit check for m3u8 in URL if not yet detected
-    if (!isMedia && (details.url.includes('.m3u8?') || details.url.endsWith('.m3u8'))) {
-      isMedia = true;
-      mediaType = 'application/vnd.apple.mpegurl';
-    }
-
-    if (isMedia) {
-      const mediaInfo = {
-        url: details.url,
-        type: mediaType,
-        size: details.responseHeaders?.find(header =>
-          header.name.toLowerCase() === 'content-length'
-        )?.value || 'Unknown',
-        timestamp: Date.now(),
-        tabId: details.tabId
-      };
+    if (detection) {
+      // Create MediaInfo with detection results
+      const mediaInfo = MediaInfo.create({
+        url: detection.url,
+        type: detection.type,
+        size: detection.size,
+        tabId: detection.tabId,
+        timestamp: detection.timestamp,
+        source: `web-request (${detection.detectionMethod})`
+      });
 
       // logger.info('Detected media:', mediaInfo);
 
-      // Use URL as key to avoid duplicates
-      if (!mediaStore.has(details.url)) {
-        mediaStore.set(details.url, mediaInfo);
-
-        // Store in chrome.storage for persistence
-        chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
-      } else {
-        // logger.info('Duplicate URL detected, skipping overwrite:', details.url);
-      }
+      // Add to MediaStore (handles duplicates and persistence)
+      mediaStore.addMedia(mediaInfo);
     }
   },
+  // The webRequest listener captures ALL network requests from the tab, including those made by iframes. 
   { urls: ['<all_urls>'] },
   ['responseHeaders']
 );
 
-// Listen for storage changes to track download state
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  // if (changes.hlsDownloadState) {
-  //   const state = changes.hlsDownloadState.newValue;
-  //   isDownloadingActive = state && state.isDownloading;
-  //   if (isDownloadingActive) {
-  //     logger.info('Download mode active - ignoring TS segment detection');
-  //   } else {
-  //     logger.info('Download mode inactive - resuming normal detection');
-  //   }
-  // }
-});
-
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'refresh') {
-    // Clear current media store for the active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (activeTabId) {
-        // Remove media from closed tabs or old entries (older than 5 minutes)
-        const now = Date.now();
-        for (const [url, info] of mediaStore.entries()) {
-          if (info.tabId !== activeTabId || (now - info.timestamp) > 300000) {
-            mediaStore.delete(url);
-          }
-        }
-        chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
-      }
-      sendResponse({ status: 'refreshed' });
-    });
+  if (request.action === REQUEST_ACTION_MEDIA_REFRESH) {
+    // Clear old entries for the active tab
+    if (activeTabId) {
+      mediaStore.clearForTab(activeTabId, 5 * 60 * 1000); // 5 minutes
+    }
+    sendResponse({ status: 'refreshed' });
     return true; // Keep message channel open for async response
   }
 
-  if (request.action === 'mediaDetected') {
-    const mediaInfo = request.mediaInfo;
-    // Enrich with tabId from sender if not present (though content script can't see its own tabId easily)
-    if (sender.tab) {
+  if (request.action === REQUEST_ACTION_MEDIA_GETSIZE) {
+    // Fetch the size of the remote file
+    fetch(request.url, { method: 'HEAD' })
+      .then(response => {
+        const contentLength = response.headers.get('content-length');
+        sendResponse({ size: contentLength ? parseInt(contentLength) : null });
+      })
+      .catch(error => {
+        sendResponse({ size: null, error: error.message });
+      });
+    return true; // Keep the message channel open for async response
+  }
+
+  if (request.action === REQUEST_ACTION_MEDIA_DETECTED) {
+    let mediaInfo = request.mediaInfo;
+    // Enrich with tabId from sender if not present
+    if (sender.tab && !mediaInfo.tabId) {
       mediaInfo.tabId = sender.tab.id;
     }
 
-    // Add to store if new
-    if (!mediaStore.has(mediaInfo.url)) {
-      logger.info('DOM detected media:', mediaInfo);
-      mediaStore.set(mediaInfo.url, mediaInfo);
-      chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
+    // Convert to MediaInfo instance if it's a plain object
+    if (!(mediaInfo instanceof MediaInfo)) {
+      mediaInfo = MediaInfo.from(mediaInfo.url, mediaInfo.type, mediaInfo.size, mediaInfo.tabId, mediaInfo.timestamp, mediaInfo.source);
     }
+
+    // Add to store (handles duplicates)
+    mediaStore.addMedia(mediaInfo);
+    logger.info('DOM detected media:', mediaInfo);
     sendResponse({ received: true });
+    return true; // Keep message channel open for async response
   }
 });
-
-// Clean up old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [url, info] of mediaStore.entries()) {
-    if ((now - info.timestamp) > 600000) { // 10 minutes
-      mediaStore.delete(url);
-    }
-  }
-  chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
-}, 60000); // Check every minute
-
-// Handle bilibili video page detection and API calls
-async function handleBilibiliVideo(url, tabId) {
-  // Check if URL is from bilibili.com and matches video pattern
-  const urlObj = new URL(url);
-  if (!urlObj.hostname.includes('bilibili.com') || !url.includes('/video/')) {
-    return;
-  }
-
-  // Extract BV code using regex
-  const bvMatch = url.match(/\/video\/(BV[0-9A-Za-z]+)/);
-  if (!bvMatch) {
-    return;
-  }
-
-  const bvCode = bvMatch[1];
-  const apiBvCode = bvCode.substring(2); // Remove 'BV' prefix
-
-  try {
-    // Call the API to get MP4 URL
-    const apiUrl = `https://api.injahow.cn/bparse/?bv=${apiBvCode}&otype=url`;
-    const response = await fetch(apiUrl);
-
-    if (!response.ok) {
-      logger.warn('Bilibili API request failed:', response.status);
-      return;
-    }
-
-    const mp4Url = await response.text();
-
-    // Validate that we got a valid URL
-    if (!mp4Url || !mp4Url.startsWith('http')) {
-      logger.warn('Invalid MP4 URL received from API:', mp4Url);
-      return;
-    }
-
-    // Create media info for the MP4 URL
-    const mediaInfo = {
-      url: mp4Url,
-      type: 'video/mp4 [bilibili video]',
-      size: 'Unknown', // API doesn't provide size
-      timestamp: Date.now(),
-      tabId: tabId,
-      source: 'bilibili original' // Mark as coming from bilibili original video
-    };
-
-    // Add to media store (avoid duplicates)
-    if (!mediaStore.has(mp4Url)) {
-      mediaStore.set(mp4Url, mediaInfo);
-
-      // Store in chrome.storage for persistence
-      chrome.storage.local.set({ mediaStore: Array.from(mediaStore.entries()) });
-
-      logger.info('Added bilibili video to media store:', mp4Url);
-    }
-  } catch (error) {
-    logger.warn('Error fetching bilibili video URL:', error);
-  }
-}
 
 // --- HLS Download Logic Removed (Moved to Content Script) ---
 // Service Workers cannot create ObjectURLs from Blobs efficiently in standard API.
