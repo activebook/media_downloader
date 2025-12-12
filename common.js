@@ -105,5 +105,19 @@ async function getShowSegmentSetting() {
   }
 }
 
+/**
+ * Get the current fetchBatchSize setting from local storage
+ * @returns {Promise<number>} Number of segments to download simultaneously (default: 5)
+ */
+async function getFetchBatchSizeSetting() {
+  try {
+    const result = await chrome.storage.local.get(['fetchBatchSize']);
+    return result.fetchBatchSize || 5;
+  } catch (error) {
+    console.warn('Failed to get fetchBatchSize setting:', error);
+    return 5;
+  }
+}
+
 // Usage
 // await sendMessage(tabId, { action: 'updateUI', data: {...} });

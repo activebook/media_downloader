@@ -157,13 +157,13 @@ async function fetchPlaylist(url, signal) {
  * @param {string[]} segmentUrls - Array of segment URLs to download
  * @param {AbortSignal} signal - Abort signal for cancellation
  * @param {DownloadState} downloadState - Download state for progress updates
+ * @param {number} batchSize - Number of segments to download simultaneously
  * @returns {Promise<ArrayBuffer[]>} Array of downloaded chunk buffers
  */
-async function downloadSegments(segmentUrls, signal, downloadState) {
+async function downloadSegments(segmentUrls, signal, downloadState, batchSize = 5) {
     const chunks = [];
-    const BATCH_SIZE = 5;
 
-    for (let i = 0; i < segmentUrls.length; i += BATCH_SIZE) {
+    for (let i = 0; i < segmentUrls.length; i += batchSize) {
         // ✅ CHECK ABORT SIGNAL AT START OF EACH BATCH
         logger.info('Starting batch, signal.aborted:', signal.aborted);
         if (signal.aborted) {
@@ -173,14 +173,14 @@ async function downloadSegments(segmentUrls, signal, downloadState) {
             throw err;
         }
 
-        const batch = segmentUrls.slice(i, i + BATCH_SIZE);
+        const batch = segmentUrls.slice(i, i + batchSize);
         const promises = batch.map(segUrl => fetch(segUrl, { signal }).then(res => res.arrayBuffer()));
 
         try {
             const buffers = await Promise.all(promises);
             chunks.push(...buffers);
 
-            const downloadedCount = Math.min(i + BATCH_SIZE, segmentUrls.length);
+            const downloadedCount = Math.min(i + batchSize, segmentUrls.length);
             logger.info(`Downloaded ${downloadedCount}/${segmentUrls.length} segments`);
 
             await downloadState.updateProgress(downloadedCount, segmentUrls.length);
@@ -188,7 +188,7 @@ async function downloadSegments(segmentUrls, signal, downloadState) {
         } catch (err) {
             if (err.name === 'AbortError') throw err; // Re-throw cancel signal to outer block
             logger.warn('Error fetching segment batch:', err);
-            throw new Error('Failed to download some segments');
+            throw new Error('Failed to download some segments:', err.message);
         }
     }
 
@@ -316,6 +316,9 @@ async function downloadHLSInPage(downloadState, signal) {
     try {
         logger.info('Starting HLS download (Content Script) for:', url);
 
+        // Load fetch batchsize settings
+        const batchSize = await getFetchBatchSizeSetting();
+
         // Fetch and parse the playlist
         let playlistText = await fetchPlaylist(url, signal);
 
@@ -339,7 +342,7 @@ async function downloadHLSInPage(downloadState, signal) {
         await downloadState.updateProgress(0, segmentUrls.length);
 
         // Download Segments
-        const chunks = await downloadSegments(segmentUrls, signal, downloadState);
+        const chunks = await downloadSegments(segmentUrls, signal, downloadState, batchSize);
 
         // Merge
         logger.info('Merging segments...');

@@ -67,7 +67,7 @@
     </div>
 
     <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 class="text-xl font-semibold mb-4">Filters</h2>
+        <h2 class="text-xl font-semibold mb-4">Options</h2>
 
         <div class="flex items-center justify-between mb-4">
             <div>
@@ -83,7 +83,7 @@
             </div>
         </div>
 
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between mb-4">
             <div>
                 <h3 class="font-medium">Show TS Segments</h3>
                 <p class="text-sm text-gray-500">Display individual .ts/.m4s video segments in the media list.</p>
@@ -94,6 +94,17 @@
                     class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer left-0 top-0 transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-green-400" />
                 <label for="showSegment"
                     class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-200 ease-in-out peer-checked:bg-green-400"></label>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="font-medium">HLS Download Batch Size</h3>
+                <p class="text-sm text-gray-500">Number of video segments to download simultaneously. Higher values may be faster but could cause server limits. Range: 1-20</p>
+            </div>
+            <div class="flex flex-col items-end">
+                <label for="fetchBatchSize" class="block text-sm font-medium text-gray-700 mb-1">Batch Size</label>
+                <input type="number" id="fetchBatchSize" min="1" max="20" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-20">
             </div>
         </div>
         </div>
